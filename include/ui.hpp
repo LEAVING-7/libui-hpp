@@ -7,6 +7,7 @@
 #include <cstring>
 #include <ctime>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -52,26 +53,32 @@ protected:
 template <typename D> struct BoxBase : Widget<D, uiBox> {
   bool padded() const { return uiBoxPadded(this->w) != 0; }
 
+  D copy() const {
+    D result;
+    result.w = this->w;
+    return result;
+  }
+
   D padded(bool value) {
     uiBoxSetPadded(this->w, value ? 1 : 0);
-    return static_cast<D>(*this);
+    return copy();
   }
 
   int num_children() const { return uiBoxNumChildren(this->w); }
 
   D delete_at(int index) {
     uiBoxDelete(this->w, index);
-    return static_cast<D>(*this);
+    return copy();
   }
 
   template <typename W> D append(W &child, bool stretchy = false) {
     uiBoxAppend(this->w, child.ctrl(), stretchy ? 1 : 0);
-    return static_cast<D>(*this);
+    return copy();
   }
 
   template <typename W> D append(W &&child, bool stretchy = false) {
     uiBoxAppend(this->w, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
-    return static_cast<D>(*this);
+    return copy();
   }
 };
 
@@ -257,7 +264,17 @@ private:
 struct VerticalBox : BoxBase<VerticalBox> {
   VerticalBox() { w = uiNewVerticalBox(); }
 
-  template <typename... W>
+  VerticalBox(const VerticalBox &) = default;
+  VerticalBox(VerticalBox &&) noexcept = default;
+  VerticalBox &operator=(const VerticalBox &) = default;
+  VerticalBox &operator=(VerticalBox &&) noexcept = default;
+
+  template <typename... W,
+            typename std::enable_if_t<
+                (sizeof...(W) > 0) &&
+                    ((sizeof...(W) > 1) ||
+                     (!std::is_same_v<std::decay_t<W>, VerticalBox> && ...)),
+                int> = 0>
   VerticalBox(W &&...children) : VerticalBox() {
     (append(std::forward<W>(children)), ...);
   }
@@ -266,7 +283,17 @@ struct VerticalBox : BoxBase<VerticalBox> {
 struct HorizontalBox : BoxBase<HorizontalBox> {
   HorizontalBox() { w = uiNewHorizontalBox(); }
 
-  template <typename... W>
+  HorizontalBox(const HorizontalBox &) = default;
+  HorizontalBox(HorizontalBox &&) noexcept = default;
+  HorizontalBox &operator=(const HorizontalBox &) = default;
+  HorizontalBox &operator=(HorizontalBox &&) noexcept = default;
+
+  template <typename... W,
+            typename std::enable_if_t<
+                (sizeof...(W) > 0) &&
+                    ((sizeof...(W) > 1) ||
+                     (!std::is_same_v<std::decay_t<W>, HorizontalBox> && ...)),
+                int> = 0>
   HorizontalBox(W &&...children) : HorizontalBox() {
     (append(std::forward<W>(children)), ...);
   }
