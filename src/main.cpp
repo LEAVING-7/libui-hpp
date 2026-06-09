@@ -3,7 +3,6 @@
 #include <ui.hpp>
 
 struct AppContext {
-  ui::Application *app;
   ui::Window *mainwin;
 };
 
@@ -24,7 +23,7 @@ static ui::Window *g_mainwin;
 
 static int on_closing(uiWindow *sender, void *data) {
   (void)sender;
-  static_cast<AppContext *>(data)->app->quit();
+  ui::Application::quit();
   return 1;
 }
 
@@ -49,12 +48,10 @@ static void on_slider_changed(uiSlider *sender, void *) {
 
 static ui::VerticalBox make_basic_controls_page() {
   return ui::VerticalBox::New(
-      ui::HorizontalBox::New(
-          ui::Button::New("Button"),
-          ui::Checkbox::New("Checkbox"))
-          .padded(true),
-      ui::Label::New("This is a label.\nLabels can span multiple lines."),
-      ui::Separator::NewHorizontal())
+             ui::HorizontalBox::New(ui::Button::New("Button"), ui::Checkbox::New("Checkbox"))
+                 .padded(true),
+             ui::Label::New("This is a label.\nLabels can span multiple lines."),
+             ui::Separator::NewHorizontal())
       .padded(true)
       .append(
           ui::Group::New("Entries").margined(true).set_child(
@@ -75,34 +72,32 @@ static ui::HorizontalBox make_numbers_page() {
 
   return ui::HorizontalBox::New()
       .padded(true)
-      .append(ui::Group::New("Numbers").margined(true).set_child(ui::VerticalBox::New(
-                  g_spinbox,
-                  g_slider,
-                  g_progress,
-                  ui::ProgressBar::New().set_value(-1))
-                                                                     .padded(true)),
+      .append(ui::Group::New("Numbers").margined(true).set_child(
+                  ui::VerticalBox::New(g_spinbox, g_slider, g_progress,
+                                       ui::ProgressBar::New().set_value(-1))
+                      .padded(true)),
               true)
-      .append(ui::Group::New("Lists").margined(true).set_child(ui::VerticalBox::New(
-                  ui::Combobox::New()
-                      .append("Combobox Item 1")
-                      .append("Combobox Item 2")
-                      .append("Combobox Item 3"),
-                  ui::EditableCombobox::New()
-                      .append("Editable Item 1")
-                      .append("Editable Item 2")
-                      .append("Editable Item 3"),
-                  ui::RadioButtons::New()
-                      .append("Radio Button 1")
-                      .append("Radio Button 2")
-                      .append("Radio Button 3"))
-                                                                   .padded(true)),
+      .append(ui::Group::New("Lists").margined(true).set_child(
+                  ui::VerticalBox::New(ui::Combobox::New()
+                                           .append("Combobox Item 1")
+                                           .append("Combobox Item 2")
+                                           .append("Combobox Item 3"),
+                                       ui::EditableCombobox::New()
+                                           .append("Editable Item 1")
+                                           .append("Editable Item 2")
+                                           .append("Editable Item 3"),
+                                       ui::RadioButtons::New()
+                                           .append("Radio Button 1")
+                                           .append("Radio Button 2")
+                                           .append("Radio Button 3"))
+                      .padded(true)),
               true);
 }
 
 static void on_open_file_clicked(uiButton *sender, void *data) {
   (void)sender;
   ui::Entry *entry = static_cast<ui::Entry *>(data);
-  std::string filename = ui::open_file(*g_mainwin);
+  ui::Text filename = ui::open_file(*g_mainwin);
   if (filename.empty()) {
     entry->set_text("(cancelled)");
     return;
@@ -113,7 +108,7 @@ static void on_open_file_clicked(uiButton *sender, void *data) {
 static void on_open_folder_clicked(uiButton *sender, void *data) {
   (void)sender;
   ui::Entry *entry = static_cast<ui::Entry *>(data);
-  std::string filename = ui::open_folder(*g_mainwin);
+  ui::Text filename = ui::open_folder(*g_mainwin);
   if (filename.empty()) {
     entry->set_text("(cancelled)");
     return;
@@ -124,7 +119,7 @@ static void on_open_folder_clicked(uiButton *sender, void *data) {
 static void on_save_file_clicked(uiButton *sender, void *data) {
   (void)sender;
   ui::Entry *entry = static_cast<ui::Entry *>(data);
-  std::string filename = ui::save_file(*g_mainwin);
+  ui::Text filename = ui::save_file(*g_mainwin);
   if (filename.empty()) {
     entry->set_text("(cancelled)");
     return;
@@ -159,12 +154,9 @@ static ui::HorizontalBox make_data_choosers_page() {
 
   return ui::HorizontalBox::New()
       .padded(true)
-      .append(ui::VerticalBox::New(
-          ui::DateTimePicker::NewDate(),
-          ui::DateTimePicker::NewTime(),
-          ui::DateTimePicker::New(),
-          ui::FontButton::New(),
-          ui::ColorButton::New())
+      .append(ui::VerticalBox::New(ui::DateTimePicker::NewDate(), ui::DateTimePicker::NewTime(),
+                                   ui::DateTimePicker::New(), ui::FontButton::New(),
+                                   ui::ColorButton::New())
                   .padded(true))
       .append(ui::Separator::NewVertical())
       .append(
@@ -195,26 +187,28 @@ int main() {
     return 1;
   }
 
-  ui::Application app;
-  ui::Window mainwin = ui::Window::New("libui Control Gallery", 640, 480, true);
-  g_mainwin = &mainwin;
+  {
+    ui::Window mainwin = ui::Window::New("libui Control Gallery", 640, 480, true);
+    g_mainwin = &mainwin;
 
-  AppContext ctx = {&app, &mainwin};
-  mainwin.on_closing(on_closing, &ctx);
-  app.on_should_quit(on_should_quit, &ctx);
+    AppContext ctx = {&mainwin};
+    mainwin.on_closing(on_closing, &ctx);
+    ui::Application::on_should_quit(on_should_quit, &ctx);
 
-  ui::Tab tab = ui::Tab::New();
-  mainwin.set_child(tab);
-  mainwin.margined(true);
+    ui::Tab tab = ui::Tab::New();
+    mainwin.set_child(tab);
+    mainwin.margined(true);
 
-  tab.append("Basic Controls", make_basic_controls_page());
-  tab.set_margined(0, true);
-  tab.append("Numbers and Lists", make_numbers_page());
-  tab.set_margined(1, true);
-  tab.append("Data Choosers", make_data_choosers_page());
-  tab.set_margined(2, true);
+    tab.append("Basic Controls", make_basic_controls_page());
+    tab.set_margined(0, true);
+    tab.append("Numbers and Lists", make_numbers_page());
+    tab.set_margined(1, true);
+    tab.append("Data Choosers", make_data_choosers_page());
+    tab.set_margined(2, true);
 
-  mainwin.show();
-  app.run();
+    mainwin.show();
+    ui::Application::run();
+  }
+  ui::Application::Uninit();
   return 0;
 }

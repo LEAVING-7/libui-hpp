@@ -20,7 +20,7 @@ ui::Image make_solid_image(int size, uint8_t r, uint8_t g, uint8_t b) {
 }
 
 class Page16Model : public ui::TableModelHandler {
-public:
+ public:
   Page16Model() {
     img_[0] = make_solid_image(16, 255, 0, 0);
     img_[1] = make_solid_image(16, 0, 128, 255);
@@ -86,29 +86,28 @@ public:
     }
 
     switch (column) {
-    case 0:
-      std::snprintf(buf, sizeof(buf), "Row %d", row);
-      break;
-    case 2:
-      if (row == 9) {
-        return ui::TableValue::string(row9text_);
-      }
-      // fall through
-    case 1:
-      std::strcpy(buf, "Part");
-      break;
-    case 6:
-      std::strcpy(buf, "Make Yellow");
-      break;
-    default:
-      buf[0] = '\0';
-      break;
+      case 0:
+        std::snprintf(buf, sizeof(buf), "Row %d", row);
+        break;
+      case 2:
+        if (row == 9) {
+          return ui::TableValue::string(row9text_);
+        }
+        // fall through
+      case 1:
+        std::strcpy(buf, "Part");
+        break;
+      case 6:
+        std::strcpy(buf, "Make Yellow");
+        break;
+      default:
+        buf[0] = '\0';
+        break;
     }
     return ui::TableValue::string(buf);
   }
 
-  void set_cell_value(int row, int column,
-                      const ui::TableValue &value) override {
+  void set_cell_value(int row, int column, const ui::TableValue &value) override {
     if (row == 9 && column == 2 && !value.empty()) {
       std::strncpy(row9text_, value.as_string(), sizeof(row9text_) - 1);
       row9text_[sizeof(row9text_) - 1] = '\0';
@@ -133,7 +132,7 @@ public:
 
   const int *check_states() const { return check_states_; }
 
-private:
+ private:
   ui::Image img_[2];
   char row9text_[1024];
   int yellow_row_ = -1;
@@ -141,17 +140,23 @@ private:
   ui::TableModel *model_ = nullptr;
 };
 
-static Page16Model g_page_model;
-static ui::TableModel g_table_model = ui::TableModel::New(g_page_model);
-static uiTable *g_table = nullptr;
-static ui::Label g_lbl_row_clicked;
-static ui::Label g_lbl_row_double_clicked;
-static ui::Label g_lbl_num_selected_rows;
-static ui::Label g_lbl_sum_selected_rows;
-static ui::Label g_lbl_count_selection_changed;
-static ui::Spinbox g_column_id;
-static ui::Spinbox g_column_width;
-static int g_count_selection_changed = 0;
+struct Context {
+  Page16Model page_model;
+  ui::TableModel table_model;
+  uiTable *table = nullptr;
+  ui::Label lbl_row_clicked;
+  ui::Label lbl_row_double_clicked;
+  ui::Label lbl_num_selected_rows;
+  ui::Label lbl_sum_selected_rows;
+  ui::Label lbl_count_selection_changed;
+  ui::Spinbox column_id;
+  ui::Spinbox column_width;
+  int count_selection_changed = 0;
+
+  Context() : table_model(ui::TableModel::New(page_model)) { page_model.bind(table_model); }
+
+  ui::VerticalBox make_page();
+};
 
 static int on_closing(uiWindow *, void *) {
   uiQuit();
@@ -159,19 +164,21 @@ static int on_closing(uiWindow *, void *) {
 }
 
 static void header_visible_toggled(uiCheckbox *sender, void *data) {
+  auto *ctx = static_cast<Context *>(data);
   ui::Checkbox checkbox;
   checkbox.w = sender;
   ui::Table table;
-  table.w = static_cast<uiTable *>(data);
+  table.w = ctx->table;
   table.header_visible(checkbox.checked());
   checkbox.set_checked(table.header_visible());
 }
 
 static void selection_mode_on_selected(uiCombobox *sender, void *data) {
+  auto *ctx = static_cast<Context *>(data);
   ui::Combobox combobox;
   combobox.w = sender;
   ui::Table table;
-  table.w = static_cast<uiTable *>(data);
+  table.w = ctx->table;
   int index = combobox.selected();
   if (index < 0) {
     return;
@@ -181,34 +188,38 @@ static void selection_mode_on_selected(uiCombobox *sender, void *data) {
 }
 
 static void changed_column_id(uiSpinbox *sender, void *data) {
+  auto *ctx = static_cast<Context *>(data);
   ui::Spinbox spinbox;
   spinbox.w = sender;
   ui::Table table;
-  table.w = static_cast<uiTable *>(data);
-  g_column_width.set_value(table.column_width(spinbox.value()));
+  table.w = ctx->table;
+  ctx->column_width.set_value(table.column_width(spinbox.value()));
 }
 
 static void changed_column_width(uiSpinbox *sender, void *data) {
+  auto *ctx = static_cast<Context *>(data);
   ui::Spinbox spinbox;
   spinbox.w = sender;
   ui::Table table;
-  table.w = static_cast<uiTable *>(data);
-  table.set_column_width(g_column_id.value(), spinbox.value());
+  table.w = ctx->table;
+  table.set_column_width(ctx->column_id.value(), spinbox.value());
 }
 
-static void on_row_clicked(uiTable *table, int row, void *) {
+static void on_row_clicked(uiTable *table, int row, void *data) {
+  auto *ctx = static_cast<Context *>(data);
   char str[128];
   std::printf("Clicked row %d\n", row);
   std::snprintf(str, sizeof(str), "Clicked row %d", row);
-  g_lbl_row_clicked.set_text(str);
+  ctx->lbl_row_clicked.set_text(str);
   (void)table;
 }
 
-static void on_row_double_clicked(uiTable *table, int row, void *) {
+static void on_row_double_clicked(uiTable *table, int row, void *data) {
+  auto *ctx = static_cast<Context *>(data);
   char str[128];
   std::printf("Double clicked row %d\n", row);
   std::snprintf(str, sizeof(str), "Double clicked row %d", row);
-  g_lbl_row_double_clicked.set_text(str);
+  ctx->lbl_row_double_clicked.set_text(str);
   (void)table;
 }
 
@@ -229,79 +240,76 @@ static void header_on_clicked(uiTable *sender, int col, void *) {
   prev = col;
 }
 
-static void on_selection_changed(uiTable *sender, void *) {
+static void on_selection_changed(uiTable *sender, void *data) {
+  auto *ctx = static_cast<Context *>(data);
   ui::Table table;
   table.w = sender;
   ui::TableSelection selection = table.selection();
 
   char str[128];
-  std::snprintf(str, sizeof(str), "# Selection Changed Count: %d",
-                ++g_count_selection_changed);
-  g_lbl_count_selection_changed.set_text(str);
+  std::snprintf(str, sizeof(str), "# Selection Changed Count: %d", ++ctx->count_selection_changed);
+  ctx->lbl_count_selection_changed.set_text(str);
 
   std::snprintf(str, sizeof(str), "# Selected Rows: %d", selection.num_rows());
-  g_lbl_num_selected_rows.set_text(str);
+  ctx->lbl_num_selected_rows.set_text(str);
 
   int sum = 0;
   for (int row : selection.rows()) {
     sum += row;
   }
   std::snprintf(str, sizeof(str), "Sum Selected Rows: %d", sum);
-  g_lbl_sum_selected_rows.set_text(str);
+  ctx->lbl_sum_selected_rows.set_text(str);
 }
 
 static void select_checked(uiButton *, void *data) {
+  auto *ctx = static_cast<Context *>(data);
   ui::Table table;
-  table.w = static_cast<uiTable *>(data);
+  table.w = ctx->table;
   std::vector<int> rows;
   for (int i = 0; i < 15; ++i) {
-    if (g_page_model.check_states()[i]) {
+    if (ctx->page_model.check_states()[i]) {
       rows.push_back(i);
     }
   }
   table.set_selection(rows);
 }
 
-static ui::VerticalBox make_page() {
-  g_page_model.bind(g_table_model);
-
+ui::VerticalBox Context::make_page() {
   ui::Table::Params params;
-  params.model = &g_table_model;
+  params.model = &table_model;
   params.row_background_color_model_column = 3;
   ui::Table table = ui::Table::New(params);
-  g_table = table.raw();
+  this->table = table.raw();
 
   ui::TableTextColumnParams text_params;
   text_params.color_model_column = 4;
 
   table.append_text_column("Column 1", 0, ui::kTableModelColumnNeverEditable)
-      .append_image_text_column("Column 2", 5, 1,
-                                ui::kTableModelColumnNeverEditable, &text_params)
+      .append_image_text_column("Column 2", 5, 1, ui::kTableModelColumnNeverEditable, &text_params)
       .append_text_column("Editable", 2, ui::kTableModelColumnAlwaysEditable)
-      .append_checkbox_column("Checkboxes", 7,
-                              ui::kTableModelColumnAlwaysEditable)
+      .append_checkbox_column("Checkboxes", 7, ui::kTableModelColumnAlwaysEditable)
       .append_button_column("Buttons", 6, ui::kTableModelColumnAlwaysEditable)
       .append_progress_bar_column("Progress Bar", 8)
       .header_on_clicked(header_on_clicked, nullptr)
-      .on_selection_changed(on_selection_changed, nullptr)
-      .on_row_clicked(on_row_clicked, nullptr)
-      .on_row_double_clicked(on_row_double_clicked, nullptr);
+      .on_selection_changed(on_selection_changed, this)
+      .on_row_clicked(on_row_clicked, this)
+      .on_row_double_clicked(on_row_double_clicked, this);
 
-  g_lbl_row_clicked = ui::Label::New("Clicked row -");
-  g_lbl_row_double_clicked = ui::Label::New("Double clicked row -");
-  g_lbl_num_selected_rows = ui::Label::New("");
-  g_lbl_sum_selected_rows = ui::Label::New("");
-  g_lbl_count_selection_changed = ui::Label::New("");
+  lbl_row_clicked = ui::Label::New("Clicked row -");
+  lbl_row_double_clicked = ui::Label::New("Double clicked row -");
+  lbl_num_selected_rows = ui::Label::New("");
+  lbl_sum_selected_rows = ui::Label::New("");
+  lbl_count_selection_changed = ui::Label::New("");
 
-  g_column_id = ui::Spinbox::New(0, 5);
-  g_column_width = ui::Spinbox::New(-1, 1000000);
+  column_id = ui::Spinbox::New(0, 5);
+  column_width = ui::Spinbox::New(-1, 1000000);
 
   return ui::VerticalBox::New(
       ui::HorizontalBox::New()
           .padded(true)
           .append(ui::Checkbox::New("Header Visible")
                       .set_checked(table.header_visible())
-                      .on_toggled(header_visible_toggled, g_table))
+                      .on_toggled(header_visible_toggled, this))
           .append(ui::Separator::NewVertical())
           .append(ui::Combobox::New()
                       .append("None")
@@ -309,26 +317,25 @@ static ui::VerticalBox make_page() {
                       .append("One")
                       .append("ZeroOrMany")
                       .set_selected(static_cast<int>(table.selection_mode()))
-                      .on_selected(selection_mode_on_selected, g_table))
+                      .on_selected(selection_mode_on_selected, this))
           .append(ui::Separator::NewVertical())
           .append(ui::Label::New("Column"))
-          .append(g_column_id.on_changed(changed_column_id, g_table))
+          .append(column_id.on_changed(changed_column_id, this))
           .append(ui::Label::New("Width"))
-          .append(g_column_width.on_changed(changed_column_width, g_table))
+          .append(column_width.on_changed(changed_column_width, this))
           .append(ui::Separator::NewVertical())
-          .append(ui::Button::New("Select Checked")
-                      .on_clicked(select_checked, g_table)),
+          .append(ui::Button::New("Select Checked").on_clicked(select_checked, this)),
       table,
       ui::HorizontalBox::New()
           .padded(true)
-          .append(g_lbl_row_clicked)
-          .append(g_lbl_row_double_clicked)
-          .append(g_lbl_num_selected_rows)
-          .append(g_lbl_sum_selected_rows)
-          .append(g_lbl_count_selection_changed));
+          .append(lbl_row_clicked)
+          .append(lbl_row_double_clicked)
+          .append(lbl_num_selected_rows)
+          .append(lbl_sum_selected_rows)
+          .append(lbl_count_selection_changed));
 }
 
-} // namespace
+}  // namespace
 
 int main() {
   std::string err;
@@ -337,10 +344,13 @@ int main() {
     return 1;
   }
 
-  ui::Application app;
-  ui::Window window = ui::Window::New("libui Table Demo", 800, 600, false);
-  window.on_closing(on_closing, nullptr);
-  window.set_child(make_page()).margined(true).show();
-  app.run();
+  {
+    Context ctx;
+    ui::Window window = ui::Window::New("libui Table Demo", 800, 600, false);
+    window.on_closing(on_closing, nullptr);
+    window.set_child(ctx.make_page()).margined(true).show();
+    ui::Application::run();
+  }
+  ui::Application::Uninit();
   return 0;
 }

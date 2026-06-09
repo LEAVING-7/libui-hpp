@@ -1,7 +1,5 @@
 #pragma once
 
-#include <ui.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -11,35 +9,80 @@
 #include <utility>
 #include <vector>
 
+#include <ui.h>
+
 namespace ui {
 
+class Text;
+
 namespace detail {
+Text adopt_text(char *text);
+}  // namespace detail
 
-inline std::string take_text(char *text) {
-  if (text == nullptr) {
-    return std::string();
+class Text {
+ public:
+  Text(Text &&other) noexcept : text_(other.text_) { other.text_ = nullptr; }
+
+  Text &operator=(Text &&other) noexcept {
+    if (this != &other) {
+      reset();
+      text_ = other.text_;
+      other.text_ = nullptr;
+    }
+    return *this;
   }
-  std::string result(text);
-  uiFreeText(text);
-  return result;
-}
 
-} // namespace detail
+  ~Text() { reset(); }
+
+  Text(const Text &) = delete;
+  Text &operator=(const Text &) = delete;
+
+  const char *c_str() const { return text_ != nullptr ? text_ : ""; }
+
+  bool empty() const { return text_ == nullptr || text_[0] == '\0'; }
+
+  std::string str() const { return text_ != nullptr ? std::string(text_) : std::string(); }
+
+ private:
+  explicit Text(char *text) : text_(text) {}
+
+  void reset() {
+    if (text_ != nullptr) {
+      uiFreeText(text_);
+      text_ = nullptr;
+    }
+  }
+
+  friend Text detail::adopt_text(char *text);
+
+  char *text_ = nullptr;
+};
+
+namespace detail {
+inline Text adopt_text(char *text) { return Text(text); }
+}  // namespace detail
 
 constexpr int kTableModelColumnNeverEditable = uiTableModelColumnNeverEditable;
 constexpr int kTableModelColumnAlwaysEditable = uiTableModelColumnAlwaysEditable;
 
-template <typename D, typename R> struct Widget {
+template <typename D, typename R>
+struct Widget {
   R *w = nullptr;
 
   uiControl *ctrl() const { return uiControl(w); }
+
   R *raw() const { return w; }
 
   void show() { uiControlShow(ctrl()); }
+
   void hide() { uiControlHide(ctrl()); }
+
   bool visible() const { return uiControlVisible(ctrl()) != 0; }
+
   void enable() { uiControlEnable(ctrl()); }
+
   void disable() { uiControlDisable(ctrl()); }
+
   bool enabled() const { return uiControlEnabled(ctrl()) != 0; }
 
   void destroy() {
@@ -49,7 +92,7 @@ template <typename D, typename R> struct Widget {
     }
   }
 
-protected:
+ protected:
   static D from(R *raw) {
     D result;
     result.w = raw;
@@ -57,7 +100,8 @@ protected:
   }
 };
 
-template <typename D> struct BoxBase : Widget<D, uiBox> {
+template <typename D>
+struct BoxBase : Widget<D, uiBox> {
   bool padded() const { return uiBoxPadded(this->w) != 0; }
 
   D copy() const {
@@ -78,20 +122,21 @@ template <typename D> struct BoxBase : Widget<D, uiBox> {
     return copy();
   }
 
-  template <typename W> D append(W &child, bool stretchy = false) {
+  template <typename W>
+  D append(W &child, bool stretchy = false) {
     uiBoxAppend(this->w, child.ctrl(), stretchy ? 1 : 0);
     return copy();
   }
 
-  template <typename W> D append(W &&child, bool stretchy = false) {
+  template <typename W>
+  D append(W &&child, bool stretchy = false) {
     uiBoxAppend(this->w, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
     return copy();
   }
 };
 
-class Application {
-public:
-  Application() = default;
+struct Application {
+  Application() = delete;
 
   static bool Init(std::string *err) {
     uiInitOptions options{};
@@ -106,17 +151,13 @@ public:
     return true;
   }
 
-  ~Application() { uiUninit(); }
+  static void Uninit() { uiUninit(); }
 
-  Application(const Application &) = delete;
-  Application &operator=(const Application &) = delete;
+  static void run() { uiMain(); }
 
-  void run() { uiMain(); }
-  void quit() { uiQuit(); }
+  static void quit() { uiQuit(); }
 
-  static void queue_main(void (*fn)(void *data), void *data) {
-    uiQueueMain(fn, data);
-  }
+  static void queue_main(void (*fn)(void *data), void *data) { uiQueueMain(fn, data); }
 
   static void timer(int milliseconds, int (*fn)(void *data), void *data) {
     uiTimer(milliseconds, fn, data);
@@ -126,46 +167,42 @@ public:
 
   static void main_steps() { uiMainSteps(); }
 
-  Application &on_should_quit(int (*fn)(void *data), void *data) {
+  static void on_should_quit(int (*fn)(void *data), void *data) {
     uiOnShouldQuit(fn, data);
-    return *this;
   }
 };
 
 struct Window : Widget<Window, uiWindow> {
-  static Window New(const char *title, int width, int height,
-                    bool has_menubar) {
+  static Window New(const char *title, int width, int height, bool has_menubar) {
     return from(uiNewWindow(title, width, height, has_menubar ? 1 : 0));
   }
 
   static Window wrap(uiWindow *raw) { return from(raw); }
 
-  std::string title() const { return detail::take_text(uiWindowTitle(w)); }
+  Text title() const { return detail::adopt_text(uiWindowTitle(w)); }
 
-  Window &set_title(const char *title) {
+  Window set_title(const char *title) {
     uiWindowSetTitle(w, title);
     return *this;
   }
 
   void position(int *x, int *y) const { uiWindowPosition(w, x, y); }
 
-  Window &set_position(int x, int y) {
+  Window set_position(int x, int y) {
     uiWindowSetPosition(w, x, y);
     return *this;
   }
 
-  void content_size(int *width, int *height) const {
-    uiWindowContentSize(w, width, height);
-  }
+  void content_size(int *width, int *height) const { uiWindowContentSize(w, width, height); }
 
-  Window &set_content_size(int width, int height) {
+  Window set_content_size(int width, int height) {
     uiWindowSetContentSize(w, width, height);
     return *this;
   }
 
   bool fullscreen() const { return uiWindowFullscreen(w) != 0; }
 
-  Window &fullscreen(bool value) {
+  Window fullscreen(bool value) {
     uiWindowSetFullscreen(w, value ? 1 : 0);
     return *this;
   }
@@ -174,54 +211,53 @@ struct Window : Widget<Window, uiWindow> {
 
   bool borderless() const { return uiWindowBorderless(w) != 0; }
 
-  Window &borderless(bool value) {
+  Window borderless(bool value) {
     uiWindowSetBorderless(w, value ? 1 : 0);
     return *this;
   }
 
   bool margined() const { return uiWindowMargined(w) != 0; }
 
-  Window &margined(bool value) {
+  Window margined(bool value) {
     uiWindowSetMargined(w, value ? 1 : 0);
     return *this;
   }
 
   bool resizable() const { return uiWindowResizeable(w) != 0; }
 
-  Window &resizable(bool value) {
+  Window resizable(bool value) {
     uiWindowSetResizeable(w, value ? 1 : 0);
     return *this;
   }
 
-  template <typename W> Window &set_child(W &child) {
+  template <typename W>
+  Window set_child(W &child) {
     uiWindowSetChild(w, child.ctrl());
     return *this;
   }
 
-  template <typename W> Window &set_child(W &&child) {
+  template <typename W>
+  Window set_child(W &&child) {
     uiWindowSetChild(w, std::forward<W>(child).ctrl());
     return *this;
   }
 
-  Window &on_closing(int (*fn)(uiWindow *sender, void *data), void *data) {
+  Window on_closing(int (*fn)(uiWindow *sender, void *data), void *data) {
     uiWindowOnClosing(w, fn, data);
     return *this;
   }
 
-  Window &on_position_changed(void (*fn)(uiWindow *sender, void *data),
-                              void *data) {
+  Window on_position_changed(void (*fn)(uiWindow *sender, void *data), void *data) {
     uiWindowOnPositionChanged(w, fn, data);
     return *this;
   }
 
-  Window &on_content_size_changed(void (*fn)(uiWindow *sender, void *data),
-                                  void *data) {
+  Window on_content_size_changed(void (*fn)(uiWindow *sender, void *data), void *data) {
     uiWindowOnContentSizeChanged(w, fn, data);
     return *this;
   }
 
-  Window &on_focus_changed(void (*fn)(uiWindow *sender, void *data),
-                           void *data) {
+  Window on_focus_changed(void (*fn)(uiWindow *sender, void *data), void *data) {
     uiWindowOnFocusChanged(w, fn, data);
     return *this;
   }
@@ -230,12 +266,11 @@ struct Window : Widget<Window, uiWindow> {
 struct VerticalBox : BoxBase<VerticalBox> {
   static VerticalBox New() { return from(uiNewVerticalBox()); }
 
-  template <typename... W,
-            typename std::enable_if_t<
-                (sizeof...(W) > 0) &&
-                    ((sizeof...(W) > 1) ||
-                     (!std::is_same_v<std::decay_t<W>, VerticalBox> && ...)),
-                int> = 0>
+  template <typename... W, typename std::enable_if_t<
+                               (sizeof...(W) > 0)
+                                   && ((sizeof...(W) > 1)
+                                       || (!std::is_same_v<std::decay_t<W>, VerticalBox> && ...)),
+                               int> = 0>
   static VerticalBox New(W &&...children) {
     VerticalBox result = New();
     (result.append(std::forward<W>(children)), ...);
@@ -246,12 +281,11 @@ struct VerticalBox : BoxBase<VerticalBox> {
 struct HorizontalBox : BoxBase<HorizontalBox> {
   static HorizontalBox New() { return from(uiNewHorizontalBox()); }
 
-  template <typename... W,
-            typename std::enable_if_t<
-                (sizeof...(W) > 0) &&
-                    ((sizeof...(W) > 1) ||
-                     (!std::is_same_v<std::decay_t<W>, HorizontalBox> && ...)),
-                int> = 0>
+  template <typename... W, typename std::enable_if_t<
+                               (sizeof...(W) > 0)
+                                   && ((sizeof...(W) > 1)
+                                       || (!std::is_same_v<std::decay_t<W>, HorizontalBox> && ...)),
+                               int> = 0>
   static HorizontalBox New(W &&...children) {
     HorizontalBox result = New();
     (result.append(std::forward<W>(children)), ...);
@@ -262,7 +296,7 @@ struct HorizontalBox : BoxBase<HorizontalBox> {
 struct Button : Widget<Button, uiButton> {
   static Button New(const char *text) { return from(uiNewButton(text)); }
 
-  std::string text() const { return detail::take_text(uiButtonText(w)); }
+  Text text() const { return detail::adopt_text(uiButtonText(w)); }
 
   Button set_text(const char *text) {
     uiButtonSetText(w, text);
@@ -278,7 +312,7 @@ struct Button : Widget<Button, uiButton> {
 struct Checkbox : Widget<Checkbox, uiCheckbox> {
   static Checkbox New(const char *text) { return from(uiNewCheckbox(text)); }
 
-  std::string text() const { return detail::take_text(uiCheckboxText(w)); }
+  Text text() const { return detail::adopt_text(uiCheckboxText(w)); }
 
   Checkbox set_text(const char *text) {
     uiCheckboxSetText(w, text);
@@ -301,7 +335,7 @@ struct Checkbox : Widget<Checkbox, uiCheckbox> {
 struct Label : Widget<Label, uiLabel> {
   static Label New(const char *text) { return from(uiNewLabel(text)); }
 
-  std::string text() const { return detail::take_text(uiLabelText(w)); }
+  Text text() const { return detail::adopt_text(uiLabelText(w)); }
 
   Label set_text(const char *text) {
     uiLabelSetText(w, text);
@@ -311,10 +345,12 @@ struct Label : Widget<Label, uiLabel> {
 
 struct Entry : Widget<Entry, uiEntry> {
   static Entry New() { return from(uiNewEntry()); }
+
   static Entry NewPassword() { return from(uiNewPasswordEntry()); }
+
   static Entry NewSearch() { return from(uiNewSearchEntry()); }
 
-  std::string text() const { return detail::take_text(uiEntryText(w)); }
+  Text text() const { return detail::adopt_text(uiEntryText(w)); }
 
   Entry set_text(const char *text) {
     uiEntrySetText(w, text);
@@ -330,107 +366,6 @@ struct Entry : Widget<Entry, uiEntry> {
 
   Entry on_changed(void (*fn)(uiEntry *sender, void *data), void *data) {
     uiEntryOnChanged(w, fn, data);
-    return *this;
-  }
-};
-
-struct MultilineEntry : Widget<MultilineEntry, uiMultilineEntry> {
-  static MultilineEntry New() { return from(uiNewMultilineEntry()); }
-
-  static MultilineEntry NewNonWrapping() {
-    return from(uiNewNonWrappingMultilineEntry());
-  }
-
-  std::string text() const {
-    return detail::take_text(uiMultilineEntryText(w));
-  }
-
-  MultilineEntry set_text(const char *text) {
-    uiMultilineEntrySetText(w, text);
-    return *this;
-  }
-
-  MultilineEntry append(const char *text) {
-    uiMultilineEntryAppend(w, text);
-    return *this;
-  }
-
-  bool readonly() const { return uiMultilineEntryReadOnly(w) != 0; }
-
-  MultilineEntry readonly(bool value) {
-    uiMultilineEntrySetReadOnly(w, value ? 1 : 0);
-    return *this;
-  }
-
-  MultilineEntry on_changed(void (*fn)(uiMultilineEntry *sender, void *data),
-                             void *data) {
-    uiMultilineEntryOnChanged(w, fn, data);
-    return *this;
-  }
-};
-
-struct Separator : Widget<Separator, uiSeparator> {
-  static Separator NewHorizontal() {
-    return from(uiNewHorizontalSeparator());
-  }
-
-  static Separator NewVertical() { return from(uiNewVerticalSeparator()); }
-};
-
-struct Group : Widget<Group, uiGroup> {
-  static Group New(const char *title) { return from(uiNewGroup(title)); }
-
-  std::string title() const { return detail::take_text(uiGroupTitle(w)); }
-
-  Group set_title(const char *title) {
-    uiGroupSetTitle(w, title);
-    return *this;
-  }
-
-  bool margined() const { return uiGroupMargined(w) != 0; }
-
-  Group margined(bool value) {
-    uiGroupSetMargined(w, value ? 1 : 0);
-    return *this;
-  }
-
-  template <typename W> Group set_child(W &child) {
-    uiGroupSetChild(w, child.ctrl());
-    return *this;
-  }
-
-  template <typename W> Group set_child(W &&child) {
-    uiGroupSetChild(w, std::forward<W>(child).ctrl());
-    return *this;
-  }
-};
-
-struct Form : Widget<Form, uiForm> {
-  static Form New() { return from(uiNewForm()); }
-
-  bool padded() const { return uiFormPadded(w) != 0; }
-
-  Form padded(bool value) {
-    uiFormSetPadded(w, value ? 1 : 0);
-    return *this;
-  }
-
-  int num_children() const { return uiFormNumChildren(w); }
-
-  Form delete_at(int index) {
-    uiFormDelete(w, index);
-    return *this;
-  }
-
-  template <typename W>
-  Form append(const char *label, W &child, bool stretchy = false) {
-    uiFormAppend(w, label, child.ctrl(), stretchy ? 1 : 0);
-    return *this;
-  }
-
-  template <typename W>
-  Form append(const char *label, W &&child, bool stretchy = false) {
-    uiFormAppend(w, label, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
     return *this;
   }
 };
@@ -454,12 +389,14 @@ struct Tab : Widget<Tab, uiTab> {
     return *this;
   }
 
-  template <typename Page> Tab append(const char *name, Page &page) {
+  template <typename Page>
+  Tab append(const char *name, Page &page) {
     uiTabAppend(w, name, page.ctrl());
     return *this;
   }
 
-  template <typename Page> Tab append(const char *name, Page &&page) {
+  template <typename Page>
+  Tab append(const char *name, Page &&page) {
     uiTabAppend(w, name, std::forward<Page>(page).ctrl());
     return *this;
   }
@@ -487,62 +424,38 @@ struct Tab : Widget<Tab, uiTab> {
   }
 };
 
-struct Grid : Widget<Grid, uiGrid> {
-  static Grid New() { return from(uiNewGrid()); }
+struct Group : Widget<Group, uiGroup> {
+  static Group New(const char *title) { return from(uiNewGroup(title)); }
 
-  bool padded() const { return uiGridPadded(w) != 0; }
+  Text title() const { return detail::adopt_text(uiGroupTitle(w)); }
 
-  Grid padded(bool value) {
-    uiGridSetPadded(w, value ? 1 : 0);
+  Group set_title(const char *title) {
+    uiGroupSetTitle(w, title);
+    return *this;
+  }
+
+  bool margined() const { return uiGroupMargined(w) != 0; }
+
+  Group margined(bool value) {
+    uiGroupSetMargined(w, value ? 1 : 0);
     return *this;
   }
 
   template <typename W>
-  Grid append(W &child, int left, int top, int xspan, int yspan, bool hexpand,
-               uiAlign halign, bool vexpand, uiAlign valign) {
-    uiGridAppend(w, child.ctrl(), left, top, xspan, yspan, hexpand ? 1 : 0,
-                 halign, vexpand ? 1 : 0, valign);
+  Group set_child(W &child) {
+    uiGroupSetChild(w, child.ctrl());
     return *this;
   }
 
   template <typename W>
-  Grid append(W &&child, int left, int top, int xspan, int yspan,
-               bool hexpand, uiAlign halign, bool vexpand, uiAlign valign) {
-    uiGridAppend(w, std::forward<W>(child).ctrl(), left, top, xspan, yspan,
-                 hexpand ? 1 : 0, halign, vexpand ? 1 : 0, valign);
+  Group set_child(W &&child) {
+    uiGroupSetChild(w, std::forward<W>(child).ctrl());
     return *this;
-  }
-
-  template <typename W>
-  Grid insert_at(W &child, uiControl *existing, uiAt at, int xspan, int yspan,
-                  bool hexpand, uiAlign halign, bool vexpand, uiAlign valign) {
-    uiGridInsertAt(w, child.ctrl(), existing, at, xspan, yspan,
-                   hexpand ? 1 : 0, halign, vexpand ? 1 : 0, valign);
-    return *this;
-  }
-
-  template <typename W>
-  Grid insert_at(W &&child, uiControl *existing, uiAt at, int xspan,
-                  int yspan, bool hexpand, uiAlign halign, bool vexpand,
-                  uiAlign valign) {
-    uiGridInsertAt(w, std::forward<W>(child).ctrl(), existing, at, xspan, yspan,
-                   hexpand ? 1 : 0, halign, vexpand ? 1 : 0, valign);
-    return *this;
-  }
-
-  template <typename Child, typename Existing>
-  Grid insert_at(Child &&child, Existing &existing, uiAt at, int xspan,
-                  int yspan, bool hexpand, uiAlign halign, bool vexpand,
-                  uiAlign valign) {
-    return insert_at(std::forward<Child>(child), existing.ctrl(), at, xspan,
-                     yspan, hexpand, halign, vexpand, valign);
   }
 };
 
 struct Spinbox : Widget<Spinbox, uiSpinbox> {
-  static Spinbox New(int min, int max) {
-    return from(uiNewSpinbox(min, max));
-  }
+  static Spinbox New(int min, int max) { return from(uiNewSpinbox(min, max)); }
 
   int value() const { return uiSpinboxValue(w); }
 
@@ -558,9 +471,7 @@ struct Spinbox : Widget<Spinbox, uiSpinbox> {
 };
 
 struct Slider : Widget<Slider, uiSlider> {
-  static Slider New(int min, int max) {
-    return from(uiNewSlider(min, max));
-  }
+  static Slider New(int min, int max) { return from(uiNewSlider(min, max)); }
 
   int value() const { return uiSliderValue(w); }
 
@@ -649,17 +560,14 @@ struct EditableCombobox : Widget<EditableCombobox, uiEditableCombobox> {
     return *this;
   }
 
-  std::string text() const {
-    return detail::take_text(uiEditableComboboxText(w));
-  }
+  Text text() const { return detail::adopt_text(uiEditableComboboxText(w)); }
 
   EditableCombobox set_text(const char *text) {
     uiEditableComboboxSetText(w, text);
     return *this;
   }
 
-  EditableCombobox on_changed(void (*fn)(uiEditableCombobox *sender, void *data),
-                               void *data) {
+  EditableCombobox on_changed(void (*fn)(uiEditableCombobox *sender, void *data), void *data) {
     uiEditableComboboxOnChanged(w, fn, data);
     return *this;
   }
@@ -680,8 +588,7 @@ struct RadioButtons : Widget<RadioButtons, uiRadioButtons> {
     return *this;
   }
 
-  RadioButtons on_selected(void (*fn)(uiRadioButtons *sender, void *data),
-                            void *data) {
+  RadioButtons on_selected(void (*fn)(uiRadioButtons *sender, void *data), void *data) {
     uiRadioButtonsOnSelected(w, fn, data);
     return *this;
   }
@@ -689,7 +596,9 @@ struct RadioButtons : Widget<RadioButtons, uiRadioButtons> {
 
 struct DateTimePicker : Widget<DateTimePicker, uiDateTimePicker> {
   static DateTimePicker New() { return from(uiNewDateTimePicker()); }
+
   static DateTimePicker NewDate() { return from(uiNewDatePicker()); }
+
   static DateTimePicker NewTime() { return from(uiNewTimePicker()); }
 
   void time(struct tm *out) const { uiDateTimePickerTime(w, out); }
@@ -699,11 +608,119 @@ struct DateTimePicker : Widget<DateTimePicker, uiDateTimePicker> {
     return *this;
   }
 
-  DateTimePicker on_changed(void (*fn)(uiDateTimePicker *sender, void *data),
-                             void *data) {
+  DateTimePicker on_changed(void (*fn)(uiDateTimePicker *sender, void *data), void *data) {
     uiDateTimePickerOnChanged(w, fn, data);
     return *this;
   }
+};
+
+struct MultilineEntry : Widget<MultilineEntry, uiMultilineEntry> {
+  static MultilineEntry New() { return from(uiNewMultilineEntry()); }
+
+  static MultilineEntry NewNonWrapping() { return from(uiNewNonWrappingMultilineEntry()); }
+
+  Text text() const { return detail::adopt_text(uiMultilineEntryText(w)); }
+
+  MultilineEntry set_text(const char *text) {
+    uiMultilineEntrySetText(w, text);
+    return *this;
+  }
+
+  MultilineEntry append(const char *text) {
+    uiMultilineEntryAppend(w, text);
+    return *this;
+  }
+
+  bool readonly() const { return uiMultilineEntryReadOnly(w) != 0; }
+
+  MultilineEntry readonly(bool value) {
+    uiMultilineEntrySetReadOnly(w, value ? 1 : 0);
+    return *this;
+  }
+
+  MultilineEntry on_changed(void (*fn)(uiMultilineEntry *sender, void *data), void *data) {
+    uiMultilineEntryOnChanged(w, fn, data);
+    return *this;
+  }
+};
+
+struct ColorButton : Widget<ColorButton, uiColorButton> {
+  static ColorButton New() { return from(uiNewColorButton()); }
+
+  void color(double *r, double *g, double *b, double *a) const {
+    uiColorButtonColor(w, r, g, b, a);
+  }
+
+  ColorButton set_color(double r, double g, double b, double a) {
+    uiColorButtonSetColor(w, r, g, b, a);
+    return *this;
+  }
+
+  ColorButton on_changed(void (*fn)(uiColorButton *sender, void *data), void *data) {
+    uiColorButtonOnChanged(w, fn, data);
+    return *this;
+  }
+};
+
+struct MenuItem {
+  uiMenuItem *item = nullptr;
+
+  static MenuItem from(uiMenuItem *raw) {
+    MenuItem result;
+    result.item = raw;
+    return result;
+  }
+
+  MenuItem enable() {
+    uiMenuItemEnable(item);
+    return *this;
+  }
+
+  MenuItem disable() {
+    uiMenuItemDisable(item);
+    return *this;
+  }
+
+  bool checked() const { return uiMenuItemChecked(item) != 0; }
+
+  MenuItem set_checked(bool value) {
+    uiMenuItemSetChecked(item, value ? 1 : 0);
+    return *this;
+  }
+
+  MenuItem on_clicked(void (*fn)(uiMenuItem *sender, uiWindow *window, void *data), void *data) {
+    uiMenuItemOnClicked(item, fn, data);
+    return *this;
+  }
+};
+
+struct Menu {
+  uiMenu *m = nullptr;
+
+  static Menu New(const char *name) {
+    Menu result;
+    result.m = uiNewMenu(name);
+    return result;
+  }
+
+  MenuItem append_item(const char *name) { return MenuItem::from(uiMenuAppendItem(m, name)); }
+
+  MenuItem append_check_item(const char *name) {
+    return MenuItem::from(uiMenuAppendCheckItem(m, name));
+  }
+
+  MenuItem append_quit_item() { return MenuItem::from(uiMenuAppendQuitItem(m)); }
+
+  MenuItem append_preferences_item() { return MenuItem::from(uiMenuAppendPreferencesItem(m)); }
+
+  MenuItem append_about_item() { return MenuItem::from(uiMenuAppendAboutItem(m)); }
+
+  Menu append_separator() {
+    uiMenuAppendSeparator(m);
+    return *this;
+  }
+
+  uiMenu *raw() const { return m; }
 };
 
 struct FontDescriptor {
@@ -739,7 +756,7 @@ struct FontDescriptor {
     return result;
   }
 
-private:
+ private:
   friend struct FontButton;
   bool from_button_ = false;
 
@@ -764,124 +781,14 @@ struct FontButton : Widget<FontButton, uiFontButton> {
     return result;
   }
 
-  FontButton on_changed(void (*fn)(uiFontButton *sender, void *data),
-                         void *data) {
+  FontButton on_changed(void (*fn)(uiFontButton *sender, void *data), void *data) {
     uiFontButtonOnChanged(w, fn, data);
     return *this;
   }
 };
 
-struct ColorButton : Widget<ColorButton, uiColorButton> {
-  static ColorButton New() { return from(uiNewColorButton()); }
-
-  void color(double *r, double *g, double *b, double *a) const {
-    uiColorButtonColor(w, r, g, b, a);
-  }
-
-  ColorButton set_color(double r, double g, double b, double a) {
-    uiColorButtonSetColor(w, r, g, b, a);
-    return *this;
-  }
-
-  ColorButton on_changed(void (*fn)(uiColorButton *sender, void *data),
-                         void *data) {
-    uiColorButtonOnChanged(w, fn, data);
-    return *this;
-  }
-};
-
-struct MenuItem {
-  uiMenuItem *item = nullptr;
-
-  static MenuItem from(uiMenuItem *raw) {
-    MenuItem result;
-    result.item = raw;
-    return result;
-  }
-
-  MenuItem enable() {
-    uiMenuItemEnable(item);
-    return *this;
-  }
-
-  MenuItem disable() {
-    uiMenuItemDisable(item);
-    return *this;
-  }
-
-  bool checked() const { return uiMenuItemChecked(item) != 0; }
-
-  MenuItem set_checked(bool value) {
-    uiMenuItemSetChecked(item, value ? 1 : 0);
-    return *this;
-  }
-
-  MenuItem on_clicked(void (*fn)(MenuItem &sender, Window &window, void *data),
-                      void *data);
-
-private:
-  struct ClickAdapter {
-    void (*fn)(MenuItem &, Window &, void *);
-    void *data;
-  };
-
-  static void click_trampoline(uiMenuItem *sender, uiWindow *window, void *data);
-};
-
-struct Menu {
-  uiMenu *m = nullptr;
-
-  static Menu New(const char *name) {
-    Menu result;
-    result.m = uiNewMenu(name);
-    return result;
-  }
-
-  MenuItem append_item(const char *name) {
-    return MenuItem::from(uiMenuAppendItem(m, name));
-  }
-
-  MenuItem append_check_item(const char *name) {
-    return MenuItem::from(uiMenuAppendCheckItem(m, name));
-  }
-
-  MenuItem append_quit_item() {
-    return MenuItem::from(uiMenuAppendQuitItem(m));
-  }
-
-  MenuItem append_preferences_item() {
-    return MenuItem::from(uiMenuAppendPreferencesItem(m));
-  }
-
-  MenuItem append_about_item() {
-    return MenuItem::from(uiMenuAppendAboutItem(m));
-  }
-
-  Menu append_separator() {
-    uiMenuAppendSeparator(m);
-    return *this;
-  }
-
-  uiMenu *raw() const { return m; }
-};
-
-inline void MenuItem::click_trampoline(uiMenuItem *sender, uiWindow *window,
-                                       void *data) {
-  auto *adapter = static_cast<ClickAdapter *>(data);
-  MenuItem item = MenuItem::from(sender);
-  Window win = Window::wrap(window);
-  adapter->fn(item, win, adapter->data);
-}
-
-inline MenuItem MenuItem::on_clicked(
-    void (*fn)(MenuItem &sender, Window &window, void *data), void *data) {
-  auto *adapter = new ClickAdapter{fn, data};
-  uiMenuItemOnClicked(item, click_trampoline, adapter);
-  return *this;
-}
-
 class Image {
-public:
+ public:
   Image() = default;
 
   static Image New(double width, double height) {
@@ -906,15 +813,14 @@ public:
     return *this;
   }
 
-  Image &append(void *pixels, int pixel_width, int pixel_height,
-                int byte_stride) {
+  Image &append(void *pixels, int pixel_width, int pixel_height, int byte_stride) {
     uiImageAppend(img_, pixels, pixel_width, pixel_height, byte_stride);
     return *this;
   }
 
   uiImage *raw() const { return img_; }
 
-private:
+ private:
   uiImage *img_ = nullptr;
 
   void reset() {
@@ -926,7 +832,7 @@ private:
 };
 
 class TableValue {
-public:
+ public:
   TableValue() = default;
 
   ~TableValue() { reset(); }
@@ -934,9 +840,7 @@ public:
   TableValue(const TableValue &) = delete;
   TableValue &operator=(const TableValue &) = delete;
 
-  TableValue(TableValue &&other) noexcept : value_(other.value_) {
-    other.value_ = nullptr;
-  }
+  TableValue(TableValue &&other) noexcept : value_(other.value_) { other.value_ = nullptr; }
 
   TableValue &operator=(TableValue &&other) noexcept {
     if (this != &other) {
@@ -998,7 +902,7 @@ public:
     return result;
   }
 
-private:
+ private:
   friend class TableModel;
   uiTableValue *value_ = nullptr;
   bool owns_ = true;
@@ -1022,7 +926,7 @@ struct TableModelHandler {
 };
 
 class TableModel {
-public:
+ public:
   static TableModel New(TableModelHandler &handler) { return TableModel(handler); }
 
   TableModel(const TableModel &) = delete;
@@ -1045,7 +949,7 @@ public:
 
   void row_deleted(int index) { uiTableModelRowDeleted(model_, index); }
 
-private:
+ private:
   explicit TableModel(TableModelHandler &handler) : handler_(&handler) {
     c_handler_.NumColumns = &TableModel::tramp_num_columns;
     c_handler_.ColumnType = &TableModel::tramp_column_type;
@@ -1056,16 +960,15 @@ private:
   }
 
   static TableModel *self(uiTableModelHandler *mh) {
-    return reinterpret_cast<TableModel *>(reinterpret_cast<char *>(mh) -
-                                          offsetof(TableModel, c_handler_));
+    return reinterpret_cast<TableModel *>(reinterpret_cast<char *>(mh)
+                                          - offsetof(TableModel, c_handler_));
   }
 
   static int tramp_num_columns(uiTableModelHandler *mh, uiTableModel *) {
     return self(mh)->handler_->num_columns();
   }
 
-  static uiTableValueType tramp_column_type(uiTableModelHandler *mh,
-                                          uiTableModel *, int column) {
+  static uiTableValueType tramp_column_type(uiTableModelHandler *mh, uiTableModel *, int column) {
     return self(mh)->handler_->column_type(column);
   }
 
@@ -1073,8 +976,8 @@ private:
     return self(mh)->handler_->num_rows();
   }
 
-  static uiTableValue *tramp_cell_value(uiTableModelHandler *mh, uiTableModel *,
-                                        int row, int column) {
+  static uiTableValue *tramp_cell_value(uiTableModelHandler *mh, uiTableModel *, int row,
+                                        int column) {
     TableValue value = self(mh)->handler_->cell_value(row, column);
     if (value.empty()) {
       return nullptr;
@@ -1082,8 +985,7 @@ private:
     return value.release();
   }
 
-  static void tramp_set_cell_value(uiTableModelHandler *mh, uiTableModel *,
-                                   int row, int column,
+  static void tramp_set_cell_value(uiTableModelHandler *mh, uiTableModel *, int row, int column,
                                    const uiTableValue *value) {
     if (value == nullptr) {
       self(mh)->handler_->set_cell_value(row, column, TableValue());
@@ -1098,7 +1000,7 @@ private:
 };
 
 class TableSelection {
-public:
+ public:
   TableSelection() = default;
 
   explicit TableSelection(uiTableSelection *raw) : selection_(raw) {}
@@ -1108,8 +1010,7 @@ public:
   TableSelection(const TableSelection &) = delete;
   TableSelection &operator=(const TableSelection &) = delete;
 
-  TableSelection(TableSelection &&other) noexcept
-      : selection_(other.selection_) {
+  TableSelection(TableSelection &&other) noexcept : selection_(other.selection_) {
     other.selection_ = nullptr;
   }
 
@@ -1138,7 +1039,7 @@ public:
     return result;
   }
 
-private:
+ private:
   friend struct Table;
   uiTableSelection *selection_ = nullptr;
 
@@ -1167,17 +1068,15 @@ struct Table : Widget<Table, uiTable> {
     return from(uiNewTable(&p));
   }
 
-  Table append_text_column(const char *name, int text_model_column,
-                            int text_editable_model_column,
-                            const TableTextColumnParams *text_params = nullptr) {
+  Table append_text_column(const char *name, int text_model_column, int text_editable_model_column,
+                           const TableTextColumnParams *text_params = nullptr) {
     uiTableTextColumnOptionalParams tp{};
     uiTableTextColumnOptionalParams *tp_ptr = nullptr;
     if (text_params != nullptr) {
       tp.ColorModelColumn = text_params->color_model_column;
       tp_ptr = &tp;
     }
-    uiTableAppendTextColumn(w, name, text_model_column, text_editable_model_column,
-                            tp_ptr);
+    uiTableAppendTextColumn(w, name, text_model_column, text_editable_model_column, tp_ptr);
     return *this;
   }
 
@@ -1186,11 +1085,9 @@ struct Table : Widget<Table, uiTable> {
     return *this;
   }
 
-  Table append_image_text_column(const char *name, int image_model_column,
-                                  int text_model_column,
-                                  int text_editable_model_column,
-                                  const TableTextColumnParams *text_params =
-                                      nullptr) {
+  Table append_image_text_column(const char *name, int image_model_column, int text_model_column,
+                                 int text_editable_model_column,
+                                 const TableTextColumnParams *text_params = nullptr) {
     uiTableTextColumnOptionalParams tp{};
     uiTableTextColumnOptionalParams *tp_ptr = nullptr;
     if (text_params != nullptr) {
@@ -1203,28 +1100,23 @@ struct Table : Widget<Table, uiTable> {
   }
 
   Table append_checkbox_column(const char *name, int checkbox_model_column,
-                                int checkbox_editable_model_column) {
-    uiTableAppendCheckboxColumn(w, name, checkbox_model_column,
-                                checkbox_editable_model_column);
+                               int checkbox_editable_model_column) {
+    uiTableAppendCheckboxColumn(w, name, checkbox_model_column, checkbox_editable_model_column);
     return *this;
   }
 
   Table append_checkbox_text_column(const char *name, int checkbox_model_column,
-                                     int checkbox_editable_model_column,
-                                     int text_model_column,
-                                     int text_editable_model_column,
-                                     const TableTextColumnParams *text_params =
-                                         nullptr) {
+                                    int checkbox_editable_model_column, int text_model_column,
+                                    int text_editable_model_column,
+                                    const TableTextColumnParams *text_params = nullptr) {
     uiTableTextColumnOptionalParams tp{};
     uiTableTextColumnOptionalParams *tp_ptr = nullptr;
     if (text_params != nullptr) {
       tp.ColorModelColumn = text_params->color_model_column;
       tp_ptr = &tp;
     }
-    uiTableAppendCheckboxTextColumn(w, name, checkbox_model_column,
-                                    checkbox_editable_model_column,
-                                    text_model_column, text_editable_model_column,
-                                    tp_ptr);
+    uiTableAppendCheckboxTextColumn(w, name, checkbox_model_column, checkbox_editable_model_column,
+                                    text_model_column, text_editable_model_column, tp_ptr);
     return *this;
   }
 
@@ -1234,9 +1126,8 @@ struct Table : Widget<Table, uiTable> {
   }
 
   Table append_button_column(const char *name, int button_model_column,
-                              int button_clickable_model_column) {
-    uiTableAppendButtonColumn(w, name, button_model_column,
-                              button_clickable_model_column);
+                             int button_clickable_model_column) {
+    uiTableAppendButtonColumn(w, name, button_model_column, button_clickable_model_column);
     return *this;
   }
 
@@ -1263,18 +1154,14 @@ struct Table : Widget<Table, uiTable> {
     return *this;
   }
 
-  uiTableSelectionMode selection_mode() const {
-    return uiTableGetSelectionMode(w);
-  }
+  uiTableSelectionMode selection_mode() const { return uiTableGetSelectionMode(w); }
 
   Table set_selection_mode(uiTableSelectionMode mode) {
     uiTableSetSelectionMode(w, mode);
     return *this;
   }
 
-  TableSelection selection() const {
-    return TableSelection(uiTableGetSelection(w));
-  }
+  TableSelection selection() const { return TableSelection(uiTableGetSelection(w)); }
 
   Table set_selection(const std::vector<int> &rows) {
     uiTableSelection sel{};
@@ -1284,51 +1171,125 @@ struct Table : Widget<Table, uiTable> {
     return *this;
   }
 
-  Table on_row_clicked(void (*fn)(uiTable *sender, int row, void *data),
-                        void *data) {
+  Table on_row_clicked(void (*fn)(uiTable *sender, int row, void *data), void *data) {
     uiTableOnRowClicked(w, fn, data);
     return *this;
   }
 
-  Table on_row_double_clicked(void (*fn)(uiTable *sender, int row, void *data),
-                               void *data) {
+  Table on_row_double_clicked(void (*fn)(uiTable *sender, int row, void *data), void *data) {
     uiTableOnRowDoubleClicked(w, fn, data);
     return *this;
   }
 
-  Table on_selection_changed(void (*fn)(uiTable *sender, void *data),
-                              void *data) {
+  Table on_selection_changed(void (*fn)(uiTable *sender, void *data), void *data) {
     uiTableOnSelectionChanged(w, fn, data);
     return *this;
   }
 
-  Table header_on_clicked(void (*fn)(uiTable *sender, int column, void *data),
-                           void *data) {
+  Table header_on_clicked(void (*fn)(uiTable *sender, int column, void *data), void *data) {
     uiTableHeaderOnClicked(w, fn, data);
     return *this;
   }
 };
 
-inline std::string open_file(Window &parent) {
-  return detail::take_text(uiOpenFile(parent.raw()));
-}
+struct Separator : Widget<Separator, uiSeparator> {
+  static Separator NewHorizontal() { return from(uiNewHorizontalSeparator()); }
 
-inline std::string open_folder(Window &parent) {
-  return detail::take_text(uiOpenFolder(parent.raw()));
-}
+  static Separator NewVertical() { return from(uiNewVerticalSeparator()); }
+};
 
-inline std::string save_file(Window &parent) {
-  return detail::take_text(uiSaveFile(parent.raw()));
-}
+struct Form : Widget<Form, uiForm> {
+  static Form New() { return from(uiNewForm()); }
 
-inline void msg_box(Window &parent, const char *title,
-                    const char *description) {
+  bool padded() const { return uiFormPadded(w) != 0; }
+
+  Form padded(bool value) {
+    uiFormSetPadded(w, value ? 1 : 0);
+    return *this;
+  }
+
+  int num_children() const { return uiFormNumChildren(w); }
+
+  Form delete_at(int index) {
+    uiFormDelete(w, index);
+    return *this;
+  }
+
+  template <typename W>
+  Form append(const char *label, W &child, bool stretchy = false) {
+    uiFormAppend(w, label, child.ctrl(), stretchy ? 1 : 0);
+    return *this;
+  }
+
+  template <typename W>
+  Form append(const char *label, W &&child, bool stretchy = false) {
+    uiFormAppend(w, label, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
+    return *this;
+  }
+};
+
+struct Grid : Widget<Grid, uiGrid> {
+  static Grid New() { return from(uiNewGrid()); }
+
+  bool padded() const { return uiGridPadded(w) != 0; }
+
+  Grid padded(bool value) {
+    uiGridSetPadded(w, value ? 1 : 0);
+    return *this;
+  }
+
+  template <typename W>
+  Grid append(W &child, int left, int top, int xspan, int yspan, bool hexpand, uiAlign halign,
+              bool vexpand, uiAlign valign) {
+    uiGridAppend(w, child.ctrl(), left, top, xspan, yspan, hexpand ? 1 : 0, halign, vexpand ? 1 : 0,
+                 valign);
+    return *this;
+  }
+
+  template <typename W>
+  Grid append(W &&child, int left, int top, int xspan, int yspan, bool hexpand, uiAlign halign,
+              bool vexpand, uiAlign valign) {
+    uiGridAppend(w, std::forward<W>(child).ctrl(), left, top, xspan, yspan, hexpand ? 1 : 0, halign,
+                 vexpand ? 1 : 0, valign);
+    return *this;
+  }
+
+  template <typename W>
+  Grid insert_at(W &child, uiControl *existing, uiAt at, int xspan, int yspan, bool hexpand,
+                 uiAlign halign, bool vexpand, uiAlign valign) {
+    uiGridInsertAt(w, child.ctrl(), existing, at, xspan, yspan, hexpand ? 1 : 0, halign,
+                   vexpand ? 1 : 0, valign);
+    return *this;
+  }
+
+  template <typename W>
+  Grid insert_at(W &&child, uiControl *existing, uiAt at, int xspan, int yspan, bool hexpand,
+                 uiAlign halign, bool vexpand, uiAlign valign) {
+    uiGridInsertAt(w, std::forward<W>(child).ctrl(), existing, at, xspan, yspan, hexpand ? 1 : 0,
+                   halign, vexpand ? 1 : 0, valign);
+    return *this;
+  }
+
+  template <typename Child, typename Existing>
+  Grid insert_at(Child &&child, Existing &existing, uiAt at, int xspan, int yspan, bool hexpand,
+                 uiAlign halign, bool vexpand, uiAlign valign) {
+    return insert_at(std::forward<Child>(child), existing.ctrl(), at, xspan, yspan, hexpand, halign,
+                     vexpand, valign);
+  }
+};
+
+inline Text open_file(Window &parent) { return detail::adopt_text(uiOpenFile(parent.raw())); }
+
+inline Text open_folder(Window &parent) { return detail::adopt_text(uiOpenFolder(parent.raw())); }
+
+inline Text save_file(Window &parent) { return detail::adopt_text(uiSaveFile(parent.raw())); }
+
+inline void msg_box(Window &parent, const char *title, const char *description) {
   uiMsgBox(parent.raw(), title, description);
 }
 
-inline void msg_box_error(Window &parent, const char *title,
-                          const char *description) {
+inline void msg_box_error(Window &parent, const char *title, const char *description) {
   uiMsgBoxError(parent.raw(), title, description);
 }
 
-} // namespace ui
+}  // namespace ui
