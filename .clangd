@@ -1,0 +1,13 @@
+InlayHints:
+  BlockEnd: No
+  Designators: No
+  Enabled: Yes
+  ParameterNames: No
+  DeducedTypes: Yes
+  TypeNameLimit: 24
+---
+# make clangd ignore build directories
+If:
+  PathMatch: .*[/\\](_deps|vcpkg_installed)[/\\].*
+Index:
+  Background: Skip

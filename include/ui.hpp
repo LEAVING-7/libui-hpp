@@ -42,6 +42,13 @@ template <typename D, typename R> struct Widget {
   void disable() { uiControlDisable(ctrl()); }
   bool enabled() const { return uiControlEnabled(ctrl()) != 0; }
 
+  void destroy() {
+    if (w != nullptr) {
+      uiControlDestroy(ctrl());
+      w = nullptr;
+    }
+  }
+
 protected:
   static D from(R *raw) {
     D result;
@@ -126,50 +133,12 @@ public:
 };
 
 struct Window : Widget<Window, uiWindow> {
-  Window() = default;
-
   static Window New(const char *title, int width, int height,
                     bool has_menubar) {
-    Window result = from(uiNewWindow(title, width, height, has_menubar ? 1 : 0));
-    result.owns_ = true;
-    return result;
+    return from(uiNewWindow(title, width, height, has_menubar ? 1 : 0));
   }
 
-  static Window wrap(uiWindow *raw) {
-    Window result;
-    result.w = raw;
-    result.owns_ = false;
-    return result;
-  }
-
-  ~Window() { destroy(); }
-
-  Window(const Window &) = delete;
-  Window &operator=(const Window &) = delete;
-  Window(Window &&other) noexcept {
-    w = other.w;
-    owns_ = other.owns_;
-    other.w = nullptr;
-    other.owns_ = false;
-  }
-  Window &operator=(Window &&other) noexcept {
-    if (this != &other) {
-      destroy();
-      w = other.w;
-      owns_ = other.owns_;
-      other.w = nullptr;
-      other.owns_ = false;
-    }
-    return *this;
-  }
-
-  void destroy() {
-    if (w != nullptr && owns_) {
-      uiControlDestroy(ctrl());
-    }
-    w = nullptr;
-    owns_ = false;
-  }
+  static Window wrap(uiWindow *raw) { return from(raw); }
 
   std::string title() const { return detail::take_text(uiWindowTitle(w)); }
 
@@ -256,18 +225,10 @@ struct Window : Widget<Window, uiWindow> {
     uiWindowOnFocusChanged(w, fn, data);
     return *this;
   }
-
-private:
-  bool owns_ = false;
 };
 
 struct VerticalBox : BoxBase<VerticalBox> {
-  VerticalBox() { w = uiNewVerticalBox(); }
-
-  VerticalBox(const VerticalBox &) = default;
-  VerticalBox(VerticalBox &&) noexcept = default;
-  VerticalBox &operator=(const VerticalBox &) = default;
-  VerticalBox &operator=(VerticalBox &&) noexcept = default;
+  static VerticalBox New() { return from(uiNewVerticalBox()); }
 
   template <typename... W,
             typename std::enable_if_t<
@@ -275,18 +236,15 @@ struct VerticalBox : BoxBase<VerticalBox> {
                     ((sizeof...(W) > 1) ||
                      (!std::is_same_v<std::decay_t<W>, VerticalBox> && ...)),
                 int> = 0>
-  VerticalBox(W &&...children) : VerticalBox() {
-    (append(std::forward<W>(children)), ...);
+  static VerticalBox New(W &&...children) {
+    VerticalBox result = New();
+    (result.append(std::forward<W>(children)), ...);
+    return result;
   }
 };
 
 struct HorizontalBox : BoxBase<HorizontalBox> {
-  HorizontalBox() { w = uiNewHorizontalBox(); }
-
-  HorizontalBox(const HorizontalBox &) = default;
-  HorizontalBox(HorizontalBox &&) noexcept = default;
-  HorizontalBox &operator=(const HorizontalBox &) = default;
-  HorizontalBox &operator=(HorizontalBox &&) noexcept = default;
+  static HorizontalBox New() { return from(uiNewHorizontalBox()); }
 
   template <typename... W,
             typename std::enable_if_t<
@@ -294,8 +252,10 @@ struct HorizontalBox : BoxBase<HorizontalBox> {
                     ((sizeof...(W) > 1) ||
                      (!std::is_same_v<std::decay_t<W>, HorizontalBox> && ...)),
                 int> = 0>
-  HorizontalBox(W &&...children) : HorizontalBox() {
-    (append(std::forward<W>(children)), ...);
+  static HorizontalBox New(W &&...children) {
+    HorizontalBox result = New();
+    (result.append(std::forward<W>(children)), ...);
+    return result;
   }
 };
 

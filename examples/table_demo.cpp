@@ -296,8 +296,8 @@ static ui::VerticalBox make_page() {
   g_column_id = ui::Spinbox::New(0, 5);
   g_column_width = ui::Spinbox::New(-1, 1000000);
 
-  return ui::VerticalBox{
-      ui::HorizontalBox{}
+  return ui::VerticalBox::New(
+      ui::HorizontalBox::New()
           .padded(true)
           .append(ui::Checkbox::New("Header Visible")
                       .set_checked(table.header_visible())
@@ -319,14 +319,13 @@ static ui::VerticalBox make_page() {
           .append(ui::Button::New("Select Checked")
                       .on_clicked(select_checked, g_table)),
       table,
-      ui::HorizontalBox{}
+      ui::HorizontalBox::New()
           .padded(true)
           .append(g_lbl_row_clicked)
           .append(g_lbl_row_double_clicked)
           .append(g_lbl_num_selected_rows)
           .append(g_lbl_sum_selected_rows)
-          .append(g_lbl_count_selection_changed),
-  };
+          .append(g_lbl_count_selection_changed));
 }
 
 } // namespace

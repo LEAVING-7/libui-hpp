@@ -1,0 +1,29 @@
+# Excluded paths: see .clang-format-ignore (e.g. build/**).
+BasedOnStyle: Google
+DerivePointerAlignment: false
+PointerAlignment: Right
+ColumnLimit: 100
+SeparateDefinitionBlocks: Always
+QualifierAlignment: Left
+BreakBeforeBinaryOperators: NonAssignment
+BreakAfterAttributes: Always
+
+SortIncludes: true
+IncludeBlocks: Regroup
+
+IncludeCategories:
+  - Regex: "^<[a-z][a-z_]*>"
+    Priority: 10
+    SortPriority: 10
+
+  - Regex: "^\""
+    Priority: 20
+    SortPriority: 20
+
+  - Regex: "^<.*\\.h>"
+    Priority: 30
+    SortPriority: 30
+
+  - Regex: "^<"
+    Priority: 40
+    SortPriority: 40
