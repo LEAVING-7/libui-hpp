@@ -22,7 +22,11 @@ if(WIN32)
     list(APPEND GALLERY_SOURCES windows/resources.rc)
 endif()
 
-add_executable(widget-gallery ${GALLERY_SOURCES})
+if(WIN32)
+    add_executable(widget-gallery WIN32 ${GALLERY_SOURCES})
+else()
+    add_executable(widget-gallery ${GALLERY_SOURCES})
+endif()
 
 target_include_directories(widget-gallery PRIVATE include src)
 
@@ -30,6 +34,7 @@ target_link_libraries(widget-gallery PRIVATE libui_ng)
 
 if(WIN32 AND MSVC)
     # resources.rc already embeds Common Controls 6 manifest; disable linker default.
+    # WIN32 sets /SUBSYSTEM:WINDOWS; /ENTRY:mainCRTStartup keeps int main().
     target_link_options(widget-gallery PRIVATE /ENTRY:mainCRTStartup /MANIFEST:NO)
 endif()
 
@@ -40,7 +45,11 @@ endif()
 
 add_dependencies(widget-gallery libui_ng_build)
 
-add_executable(table-demo examples/table_demo.cpp)
+if(WIN32)
+    add_executable(table-demo WIN32 examples/table_demo.cpp)
+else()
+    add_executable(table-demo examples/table_demo.cpp)
+endif()
 
 target_include_directories(table-demo PRIVATE include)
 
