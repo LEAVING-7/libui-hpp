@@ -2,14 +2,62 @@
 
 #include <ui.hpp>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace {
+
+constexpr int kPopupCornerRadius = 12;
+constexpr int kPopupWidth = 200;
+constexpr int kPopupHeight = 40;
+
+ui::DrawPath make_rounded_rectangle(double x, double y, double width, double height, double radius) {
+  double r = radius;
+  if (r > width / 2.0) {
+    r = width / 2.0;
+  }
+  if (r > height / 2.0) {
+    r = height / 2.0;
+  }
+  constexpr double kPi = 3.14159265358979323846;
+  ui::DrawPath path = ui::DrawPath::make();
+  path.new_figure(x + r, y)
+      .line_to(x + width - r, y)
+      .arc_to(x + width - r, y + r, r, 3.0 * kPi / 2.0, kPi / 2.0)
+      .line_to(x + width, y + height - r)
+      .arc_to(x + width - r, y + height - r, r, 0, kPi / 2.0)
+      .line_to(x + r, y + height)
+      .arc_to(x + r, y + height - r, r, kPi / 2.0, kPi / 2.0)
+      .line_to(x, y + r)
+      .arc_to(x + r, y + r, r, kPi, kPi / 2.0)
+      .close_figure()
+      .end();
+  return path;
+}
+
+#ifdef _WIN32
+void apply_rounded_window_shape(uiWindow *window, int width, int height, int corner_radius) {
+  HWND hwnd = reinterpret_cast<HWND>(uiControlHandle(uiControl(window)));
+  HRGN region = CreateRoundRectRgn(0, 0, width + 1, height + 1, corner_radius, corner_radius);
+  if (region == nullptr) {
+    return;
+  }
+  if (SetWindowRgn(hwnd, region, TRUE) == 0) {
+    DeleteObject(region);
+  }
+}
+#endif
+
+}  // namespace
+
 struct PopupWindow {
   PopupWindow() {
     handler_.Draw = [](uiAreaHandler *handler, uiArea *area, uiAreaDrawParams *params) {
       printf("Draw\n");
       ui::DrawContext::wrap(params->Context)
-          .fill(
-              ui::DrawPath::make().add_rectangle(0, 0, params->AreaWidth, params->AreaHeight).end(),
-              ui::DrawBrush::solid(1.0, 0.0, 0.0, 1.0));
+          .fill(make_rounded_rectangle(0, 0, params->AreaWidth, params->AreaHeight, kPopupCornerRadius),
+                ui::DrawBrush::solid(1.0, 0.0, 0.0, 1.0));
     };
     handler_.MouseEvent = [](uiAreaHandler *handler, uiArea *area, uiAreaMouseEvent *event) {
       printf("MouseEvent\n");
@@ -35,11 +83,14 @@ struct PopupWindow {
 
   void show() {
     area_ = uiNewArea(&handler_);
-    ui::Window popup = ui::Window::make("pop up", 200, 40, false);
+    ui::Window popup = ui::Window::make("pop up", kPopupWidth, kPopupHeight, false);
     window_ = popup.raw();
     popup.borderless(true).margined(false).resizable(false);
     uiWindowSetChild(popup.raw(), uiControl(area_));
     popup.on_focus_changed(on_focus_changed, this).show();
+#ifdef _WIN32
+    apply_rounded_window_shape(window_, kPopupWidth, kPopupHeight, kPopupCornerRadius);
+#endif
   }
 
   void toggle() {
