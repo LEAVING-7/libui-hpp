@@ -128,7 +128,7 @@ class Page16Model : public ui::TableModelHandler {
     }
   }
 
-  void bind(ui::TableModel &model) { model_ = &model; }
+  void attach(ui::TableModel *model) override { model_ = model; }
 
   const int *check_states() const { return check_states_; }
 
@@ -141,7 +141,6 @@ class Page16Model : public ui::TableModelHandler {
 };
 
 struct Context {
-  Page16Model page_model;
   ui::TableModel table_model;
   uiTable *table = nullptr;
   ui::Label lbl_row_clicked;
@@ -153,7 +152,7 @@ struct Context {
   ui::Spinbox column_width;
   int count_selection_changed = 0;
 
-  Context() : table_model(ui::TableModel::make(page_model)) { page_model.bind(table_model); }
+  Context() : table_model(ui::TableModel::make<Page16Model>()) {}
 
   ui::VerticalBox make_page();
 };
@@ -267,7 +266,7 @@ static void select_checked(uiButton *, void *data) {
   table.w = ctx->table;
   std::vector<int> rows;
   for (int i = 0; i < 15; ++i) {
-    if (ctx->page_model.check_states()[i]) {
+    if (ctx->table_model.handler_as<Page16Model>()->check_states()[i]) {
       rows.push_back(i);
     }
   }

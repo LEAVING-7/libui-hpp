@@ -17,9 +17,167 @@ struct GalleryApp {
   ui::Button error_box_button;
 
   ui::Window *mainwin = nullptr;
+  uiWindow *popup = nullptr;
+};
+
+struct PopupDrawState {
+  uiAttributedString *text = nullptr;
+  uiFontDescriptor font{};
+  uiDrawTextLayout *layout = nullptr;
+  double layout_width = -1;
 };
 
 static GalleryApp g_app;
+static PopupDrawState g_popup_draw;
+
+static void free_popup_draw_state() {
+  if (g_popup_draw.layout != nullptr) {
+    uiDrawFreeTextLayout(g_popup_draw.layout);
+    g_popup_draw.layout = nullptr;
+  }
+  if (g_popup_draw.text != nullptr) {
+    uiFreeAttributedString(g_popup_draw.text);
+    g_popup_draw.text = nullptr;
+  }
+  if (g_popup_draw.font.Family != nullptr) {
+    uiFreeFontDescriptor(&g_popup_draw.font);
+    g_popup_draw.font = {};
+  }
+  g_popup_draw.layout_width = -1;
+}
+
+static void init_popup_draw_state() {
+  free_popup_draw_state();
+  g_popup_draw.text = uiNewAttributedString("Hello, World!");
+  uiLoadControlFont(&g_popup_draw.font);
+}
+
+static void ensure_popup_layout(double width) {
+  if (g_popup_draw.layout != nullptr && g_popup_draw.layout_width == width) {
+    return;
+  }
+  if (g_popup_draw.layout != nullptr) {
+    uiDrawFreeTextLayout(g_popup_draw.layout);
+    g_popup_draw.layout = nullptr;
+  }
+
+  uiDrawTextLayoutParams layout_params{};
+  layout_params.String = g_popup_draw.text;
+  layout_params.DefaultFont = &g_popup_draw.font;
+  layout_params.Width = width;
+  layout_params.Align = uiDrawTextAlignCenter;
+  g_popup_draw.layout = uiDrawNewTextLayout(&layout_params);
+  g_popup_draw.layout_width = width;
+}
+
+static void popup_surface_draw(uiAreaHandler *, uiArea *, uiAreaDrawParams *params) {
+  uiDrawPath *path = uiDrawNewPath(uiDrawFillModeWinding);
+  uiDrawPathAddRectangle(path, 0, 0, params->AreaWidth, params->AreaHeight);
+  uiDrawPathEnd(path);
+
+  uiDrawBrush brush{};
+  brush.Type = uiDrawBrushTypeSolid;
+  brush.R = 1.0;
+  brush.G = 1.0;
+  brush.B = 1.0;
+  brush.A = 1.0;
+
+  uiDrawFill(params->Context, path, &brush);
+  uiDrawFreePath(path);
+
+  if (g_popup_draw.text == nullptr) {
+    return;
+  }
+
+  ensure_popup_layout(params->AreaWidth);
+  double width = 0;
+  double height = 0;
+  uiDrawTextLayoutExtents(g_popup_draw.layout, &width, &height);
+  uiDrawText(params->Context, g_popup_draw.layout, (params->AreaWidth - width) / 2,
+             (params->AreaHeight - height) / 2);
+}
+
+static void popup_surface_mouse(uiAreaHandler *, uiArea *area, uiAreaMouseEvent *event) {
+  if (event->Down != 0) {
+    uiAreaBeginUserWindowMove(area);
+  }
+}
+
+static void popup_surface_mouse_crossed(uiAreaHandler *, uiArea *, int) {}
+
+static void popup_surface_drag_broken(uiAreaHandler *, uiArea *) {}
+
+static int popup_surface_key(uiAreaHandler *, uiArea *, uiAreaKeyEvent *) { return 0; }
+
+static uiAreaHandler g_popup_surface_handler = {
+    popup_surface_draw,
+    popup_surface_mouse,
+    popup_surface_mouse_crossed,
+    popup_surface_drag_broken,
+    popup_surface_key,
+};
+
+static void close_popup() {
+  if (g_app.popup == nullptr) {
+    return;
+  }
+  uiWindow *popup = g_app.popup;
+  g_app.popup = nullptr;
+  ui::Window::wrap(popup).destroy();
+  free_popup_draw_state();
+}
+
+static void show_popup() {
+  init_popup_draw_state();
+
+  ui::Window popup = ui::Window::make("pop up", 500, 500, true);
+  g_app.popup = popup.raw();
+
+  uiArea *surface = uiNewArea(&g_popup_surface_handler);
+
+  popup.borderless(true)
+      .margined(true)
+      .resizable(true);
+  uiWindowSetChild(popup.raw(), uiControl(surface));
+  popup
+      .on_focus_changed(
+          [](uiWindow *sender, void *) {
+            if (uiWindowFocused(sender) != 0) {
+              return;
+            }
+            ui::Application::queue_main(
+                [](void *data) {
+                  uiWindow *w = static_cast<uiWindow *>(data);
+                  if (g_app.popup == w) {
+                    close_popup();
+                  }
+                },
+                sender);
+          },
+          nullptr)
+      .show();
+}
+
+static void toggle_popup() {
+  if (g_app.popup != nullptr) {
+    close_popup();
+    return;
+  }
+  show_popup();
+}
+
+static ui::VerticalBox make_popup_page() {
+  return ui::VerticalBox::make(
+             ui::Group::make("Popup Window")
+                 .margined(true)
+                 .set_child(ui::VerticalBox::make(
+                     ui::Label::make("Borderless popup that closes when clicking outside.\n"
+                                     "Drag anywhere inside to move the window."),
+                     ui::Button::make("Toggle Popup").on_clicked(
+                         [](uiButton *, void *) { toggle_popup(); }, nullptr))
+                     .padded(true)))
+      .padded(true);
+}
 
 static ui::VerticalBox make_basic_controls_page() {
   return ui::VerticalBox::make(
@@ -186,6 +344,7 @@ int main() {
         nullptr);
     ui::Application::on_should_quit(
         [](void *) {
+          close_popup();
           g_app.mainwin->destroy();
           return 1;
         },
@@ -201,8 +360,11 @@ int main() {
     tab.set_margined(1, true);
     tab.append("Data Choosers", make_data_choosers_page());
     tab.set_margined(2, true);
+    tab.append("Popup Window", make_popup_page());
+    tab.set_margined(3, true);
 
     mainwin.show();
+
     ui::Application::run();
   }
   ui::Application::uninit();

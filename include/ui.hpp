@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstring>
 #include <ctime>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -935,8 +936,11 @@ class TableValue {
   }
 };
 
+class TableModel;
+
 struct TableModelHandler {
   virtual ~TableModelHandler() = default;
+  virtual void attach(TableModel *model) { (void)model; }
   virtual int num_columns() = 0;
   virtual uiTableValueType column_type(int column) = 0;
   virtual int num_rows() = 0;
@@ -946,76 +950,115 @@ struct TableModelHandler {
 
 class TableModel {
  public:
-  static TableModel make(TableModelHandler &handler) { return TableModel(handler); }
+  TableModel() = default;
+
+  template <typename H, typename... Args>
+  static TableModel make(Args &&...args) {
+    return TableModel(std::make_unique<H>(std::forward<Args>(args)...));
+  }
+
+  static TableModel make(std::unique_ptr<TableModelHandler> handler) {
+    return TableModel(std::move(handler));
+  }
 
   TableModel(const TableModel &) = delete;
   TableModel &operator=(const TableModel &) = delete;
 
-  TableModel(TableModel &&) = delete;
-  TableModel &operator=(TableModel &&) = delete;
+  TableModel(TableModel &&) noexcept = default;
+  TableModel &operator=(TableModel &&) noexcept = default;
 
-  ~TableModel() {
-    if (model_ != nullptr) {
-      uiFreeTableModel(model_);
-    }
+  ~TableModel() = default;
+
+  uiTableModel *raw() const { return impl_ != nullptr ? impl_->model : nullptr; }
+
+  TableModelHandler *handler() { return impl_ != nullptr ? impl_->handler.get() : nullptr; }
+
+  const TableModelHandler *handler() const {
+    return impl_ != nullptr ? impl_->handler.get() : nullptr;
   }
 
-  uiTableModel *raw() const { return model_; }
+  template <typename H>
+  H *handler_as() {
+    return dynamic_cast<H *>(handler());
+  }
 
-  void row_inserted(int index) { uiTableModelRowInserted(model_, index); }
+  template <typename H>
+  const H *handler_as() const {
+    return dynamic_cast<const H *>(handler());
+  }
 
-  void row_changed(int index) { uiTableModelRowChanged(model_, index); }
+  void row_inserted(int index) { uiTableModelRowInserted(impl_->model, index); }
 
-  void row_deleted(int index) { uiTableModelRowDeleted(model_, index); }
+  void row_changed(int index) { uiTableModelRowChanged(impl_->model, index); }
+
+  void row_deleted(int index) { uiTableModelRowDeleted(impl_->model, index); }
 
  private:
-  explicit TableModel(TableModelHandler &handler) : handler_(&handler) {
-    c_handler_.NumColumns = &TableModel::tramp_num_columns;
-    c_handler_.ColumnType = &TableModel::tramp_column_type;
-    c_handler_.NumRows = &TableModel::tramp_num_rows;
-    c_handler_.CellValue = &TableModel::tramp_cell_value;
-    c_handler_.SetCellValue = &TableModel::tramp_set_cell_value;
-    model_ = uiNewTableModel(&c_handler_);
-  }
+  struct Impl {
+    std::unique_ptr<TableModelHandler> handler;
+    uiTableModelHandler c_handler{};
+    uiTableModel *model = nullptr;
 
-  static TableModel *self(uiTableModelHandler *mh) {
-    return reinterpret_cast<TableModel *>(reinterpret_cast<char *>(mh)
-                                          - offsetof(TableModel, c_handler_));
-  }
-
-  static int tramp_num_columns(uiTableModelHandler *mh, uiTableModel *) {
-    return self(mh)->handler_->num_columns();
-  }
-
-  static uiTableValueType tramp_column_type(uiTableModelHandler *mh, uiTableModel *, int column) {
-    return self(mh)->handler_->column_type(column);
-  }
-
-  static int tramp_num_rows(uiTableModelHandler *mh, uiTableModel *) {
-    return self(mh)->handler_->num_rows();
-  }
-
-  static uiTableValue *tramp_cell_value(uiTableModelHandler *mh, uiTableModel *, int row,
-                                        int column) {
-    TableValue value = self(mh)->handler_->cell_value(row, column);
-    if (value.empty()) {
-      return nullptr;
+    explicit Impl(std::unique_ptr<TableModelHandler> handler_in)
+        : handler(std::move(handler_in)) {
+      c_handler.NumColumns = &tramp_num_columns;
+      c_handler.ColumnType = &tramp_column_type;
+      c_handler.NumRows = &tramp_num_rows;
+      c_handler.CellValue = &tramp_cell_value;
+      c_handler.SetCellValue = &tramp_set_cell_value;
+      model = uiNewTableModel(&c_handler);
     }
-    return value.release();
-  }
 
-  static void tramp_set_cell_value(uiTableModelHandler *mh, uiTableModel *, int row, int column,
-                                   const uiTableValue *value) {
-    if (value == nullptr) {
-      self(mh)->handler_->set_cell_value(row, column, TableValue());
-      return;
+    ~Impl() {
+      if (model != nullptr) {
+        uiFreeTableModel(model);
+      }
     }
-    self(mh)->handler_->set_cell_value(row, column, TableValue::borrow(value));
+
+    Impl(const Impl &) = delete;
+    Impl &operator=(const Impl &) = delete;
+
+    static Impl *self(uiTableModelHandler *mh) {
+      return reinterpret_cast<Impl *>(reinterpret_cast<char *>(mh) - offsetof(Impl, c_handler));
+    }
+
+    static int tramp_num_columns(uiTableModelHandler *mh, uiTableModel *) {
+      return self(mh)->handler->num_columns();
+    }
+
+    static uiTableValueType tramp_column_type(uiTableModelHandler *mh, uiTableModel *, int column) {
+      return self(mh)->handler->column_type(column);
+    }
+
+    static int tramp_num_rows(uiTableModelHandler *mh, uiTableModel *) {
+      return self(mh)->handler->num_rows();
+    }
+
+    static uiTableValue *tramp_cell_value(uiTableModelHandler *mh, uiTableModel *, int row,
+                                          int column) {
+      TableValue value = self(mh)->handler->cell_value(row, column);
+      if (value.empty()) {
+        return nullptr;
+      }
+      return value.release();
+    }
+
+    static void tramp_set_cell_value(uiTableModelHandler *mh, uiTableModel *, int row, int column,
+                                     const uiTableValue *value) {
+      if (value == nullptr) {
+        self(mh)->handler->set_cell_value(row, column, TableValue());
+        return;
+      }
+      self(mh)->handler->set_cell_value(row, column, TableValue::borrow(value));
+    }
+  };
+
+  explicit TableModel(std::unique_ptr<TableModelHandler> handler)
+      : impl_(std::make_unique<Impl>(std::move(handler))) {
+    impl_->handler->attach(this);
   }
 
-  TableModelHandler *handler_ = nullptr;
-  uiTableModelHandler c_handler_{};
-  uiTableModel *model_ = nullptr;
+  std::unique_ptr<Impl> impl_;
 };
 
 class TableSelection {
