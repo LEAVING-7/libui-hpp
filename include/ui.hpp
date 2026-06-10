@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstring>
 #include <ctime>
+#include <initializer_list>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -851,6 +852,218 @@ class Image {
   }
 };
 
+class DrawBrush {
+ public:
+  DrawBrush() = default;
+
+  static DrawBrush solid(double r, double g, double b, double a) {
+    DrawBrush result;
+    result.brush_.Type = uiDrawBrushTypeSolid;
+    result.brush_.R = r;
+    result.brush_.G = g;
+    result.brush_.B = b;
+    result.brush_.A = a;
+    return result;
+  }
+
+  static DrawBrush linear_gradient(double x0, double y0, double x1, double y1,
+                                   std::vector<uiDrawBrushGradientStop> stops) {
+    DrawBrush result;
+    result.brush_.Type = uiDrawBrushTypeLinearGradient;
+    result.brush_.X0 = x0;
+    result.brush_.Y0 = y0;
+    result.brush_.X1 = x1;
+    result.brush_.Y1 = y1;
+    result.stops_ = std::move(stops);
+    return result;
+  }
+
+  static DrawBrush linear_gradient(double x0, double y0, double x1, double y1,
+                                   std::initializer_list<uiDrawBrushGradientStop> stops) {
+    return linear_gradient(x0, y0, x1, y1, std::vector<uiDrawBrushGradientStop>(stops));
+  }
+
+  static DrawBrush radial_gradient(double x0, double y0, double x1, double y1, double outer_radius,
+                                   std::vector<uiDrawBrushGradientStop> stops) {
+    DrawBrush result;
+    result.brush_.Type = uiDrawBrushTypeRadialGradient;
+    result.brush_.X0 = x0;
+    result.brush_.Y0 = y0;
+    result.brush_.X1 = x1;
+    result.brush_.Y1 = y1;
+    result.brush_.OuterRadius = outer_radius;
+    result.stops_ = std::move(stops);
+    return result;
+  }
+
+  static DrawBrush radial_gradient(double x0, double y0, double x1, double y1, double outer_radius,
+                                   std::initializer_list<uiDrawBrushGradientStop> stops) {
+    return radial_gradient(x0, y0, x1, y1, outer_radius,
+                           std::vector<uiDrawBrushGradientStop>(stops));
+  }
+
+  DrawBrush(const DrawBrush &) = default;
+  DrawBrush &operator=(const DrawBrush &) = default;
+  DrawBrush(DrawBrush &&) noexcept = default;
+  DrawBrush &operator=(DrawBrush &&) noexcept = default;
+
+  uiDrawBrush *raw() {
+    sync_stops();
+    return &brush_;
+  }
+
+  const uiDrawBrush *raw() const {
+    sync_stops();
+    return &brush_;
+  }
+
+ private:
+  mutable uiDrawBrush brush_{};
+  std::vector<uiDrawBrushGradientStop> stops_;
+
+  void sync_stops() const {
+    if (stops_.empty()) {
+      brush_.Stops = nullptr;
+      brush_.NumStops = 0;
+    } else {
+      brush_.Stops = const_cast<uiDrawBrushGradientStop *>(stops_.data());
+      brush_.NumStops = stops_.size();
+    }
+  }
+};
+
+class DrawPath {
+ public:
+  DrawPath() = default;
+
+  static DrawPath make(uiDrawFillMode fill_mode = uiDrawFillModeWinding) {
+    DrawPath result;
+    result.path_ = uiDrawNewPath(fill_mode);
+    return result;
+  }
+
+  ~DrawPath() { reset(); }
+
+  DrawPath(const DrawPath &) = delete;
+  DrawPath &operator=(const DrawPath &) = delete;
+
+  DrawPath(DrawPath &&other) noexcept : path_(other.path_) { other.path_ = nullptr; }
+
+  DrawPath &operator=(DrawPath &&other) noexcept {
+    if (this != &other) {
+      reset();
+      path_ = other.path_;
+      other.path_ = nullptr;
+    }
+    return *this;
+  }
+
+  DrawPath &new_figure(double x, double y) {
+    uiDrawPathNewFigure(path_, x, y);
+    return *this;
+  }
+
+  DrawPath &new_figure_with_arc(double x_center, double y_center, double radius, double start_angle,
+                                double sweep, bool negative = false) {
+    uiDrawPathNewFigureWithArc(path_, x_center, y_center, radius, start_angle, sweep,
+                               negative ? 1 : 0);
+    return *this;
+  }
+
+  DrawPath &line_to(double x, double y) {
+    uiDrawPathLineTo(path_, x, y);
+    return *this;
+  }
+
+  DrawPath &arc_to(double x_center, double y_center, double radius, double start_angle,
+                   double sweep, bool negative = false) {
+    uiDrawPathArcTo(path_, x_center, y_center, radius, start_angle, sweep, negative ? 1 : 0);
+    return *this;
+  }
+
+  DrawPath &bezier_to(double c1x, double c1y, double c2x, double c2y, double end_x, double end_y) {
+    uiDrawPathBezierTo(path_, c1x, c1y, c2x, c2y, end_x, end_y);
+    return *this;
+  }
+
+  DrawPath &close_figure() {
+    uiDrawPathCloseFigure(path_);
+    return *this;
+  }
+
+  DrawPath &add_rectangle(double x, double y, double width, double height) {
+    uiDrawPathAddRectangle(path_, x, y, width, height);
+    return *this;
+  }
+
+  bool ended() const { return uiDrawPathEnded(path_) != 0; }
+
+  DrawPath &end() {
+    uiDrawPathEnd(path_);
+    return *this;
+  }
+
+  uiDrawPath *raw() const { return path_; }
+
+ private:
+  uiDrawPath *path_ = nullptr;
+
+  void reset() {
+    if (path_ != nullptr) {
+      uiDrawFreePath(path_);
+      path_ = nullptr;
+    }
+  }
+};
+
+class DrawContext {
+ public:
+  DrawContext() = default;
+
+  static DrawContext wrap(uiDrawContext *ctx) {
+    DrawContext result;
+    result.ctx_ = ctx;
+    return result;
+  }
+
+  DrawContext &fill(const DrawPath &path, const DrawBrush &brush) {
+    uiDrawFill(ctx_, path.raw(), const_cast<uiDrawBrush *>(brush.raw()));
+    return *this;
+  }
+
+  DrawContext &stroke(const DrawPath &path, const DrawBrush &brush,
+                      const uiDrawStrokeParams &params) {
+    uiDrawStroke(ctx_, path.raw(), const_cast<uiDrawBrush *>(brush.raw()),
+                 const_cast<uiDrawStrokeParams *>(&params));
+    return *this;
+  }
+
+  DrawContext &clip(const DrawPath &path) {
+    uiDrawClip(ctx_, path.raw());
+    return *this;
+  }
+
+  DrawContext &transform(const uiDrawMatrix &matrix) {
+    uiDrawTransform(ctx_, const_cast<uiDrawMatrix *>(&matrix));
+    return *this;
+  }
+
+  DrawContext &save() {
+    uiDrawSave(ctx_);
+    return *this;
+  }
+
+  DrawContext &restore() {
+    uiDrawRestore(ctx_);
+    return *this;
+  }
+
+  uiDrawContext *raw() const { return ctx_; }
+
+ private:
+  uiDrawContext *ctx_ = nullptr;
+};
+
 class TableValue {
  public:
   TableValue() = default;
@@ -940,7 +1153,9 @@ class TableModel;
 
 struct TableModelHandler {
   virtual ~TableModelHandler() = default;
+
   virtual void attach(TableModel *model) { (void)model; }
+
   virtual int num_columns() = 0;
   virtual uiTableValueType column_type(int column) = 0;
   virtual int num_rows() = 0;
@@ -999,8 +1214,7 @@ class TableModel {
     uiTableModelHandler c_handler{};
     uiTableModel *model = nullptr;
 
-    explicit Impl(std::unique_ptr<TableModelHandler> handler_in)
-        : handler(std::move(handler_in)) {
+    explicit Impl(std::unique_ptr<TableModelHandler> handler_in) : handler(std::move(handler_in)) {
       c_handler.NumColumns = &tramp_num_columns;
       c_handler.ColumnType = &tramp_column_type;
       c_handler.NumRows = &tramp_num_rows;
@@ -1286,6 +1500,18 @@ struct Form : Widget<Form, uiForm> {
   template <typename W>
   Form append(const char *label, W &&child, bool stretchy = false) {
     uiFormAppend(w, label, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
+    return *this;
+  }
+
+  template <typename W>
+  Form append_stretchy(const char *label, W &child) {
+    uiFormAppend(w, label, child.ctrl(), 1);
+    return *this;
+  }
+
+  template <typename W>
+  Form append_stretchy(const char *label, W &&child) {
+    uiFormAppend(w, label, std::forward<W>(child).ctrl(), 1);
     return *this;
   }
 };
