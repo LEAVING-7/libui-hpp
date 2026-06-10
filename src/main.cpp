@@ -6,6 +6,10 @@ struct PopupWindow {
   PopupWindow() {
     handler_.Draw = [](uiAreaHandler *handler, uiArea *area, uiAreaDrawParams *params) {
       printf("Draw\n");
+      ui::DrawContext::wrap(params->Context)
+          .fill(
+              ui::DrawPath::make().add_rectangle(0, 0, params->AreaWidth, params->AreaHeight).end(),
+              ui::DrawBrush::solid(1.0, 0.0, 0.0, 1.0));
     };
     handler_.MouseEvent = [](uiAreaHandler *handler, uiArea *area, uiAreaMouseEvent *event) {
       printf("MouseEvent\n");
@@ -30,15 +34,10 @@ struct PopupWindow {
   }
 
   void show() {
-    ui::Window popup = ui::Window::make("pop up", 200, 40, true);
-    window_ = popup.raw();
-    auto content = ui::Grid::make().append(ui::Label::make("Hello, World!"), 0, 0, 1, 1, true,
-                                           uiAlignCenter, true, uiAlignCenter);
-    popup.borderless(true).margined(false).resizable(true).set_child(content);
-
     area_ = uiNewArea(&handler_);
-    // uiAreaSetSize(area_, 200, 40);
-    // popup.set_child(area_);
+    ui::Window popup = ui::Window::make("pop up", 200, 40, false);
+    window_ = popup.raw();
+    popup.borderless(true).margined(false).resizable(false);
     uiWindowSetChild(popup.raw(), uiControl(area_));
     popup.on_focus_changed(on_focus_changed, this).show();
   }
