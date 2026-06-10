@@ -14,7 +14,7 @@ ui::Image make_solid_image(int size, uint8_t r, uint8_t g, uint8_t b) {
     pixels[static_cast<size_t>(i * 4) + 2] = b;
     pixels[static_cast<size_t>(i * 4) + 3] = 255;
   }
-  ui::Image img = ui::Image::New(size, size);
+  ui::Image img = ui::Image::make(size, size);
   img.append(pixels.data(), size, size, size * 4);
   return img;
 }
@@ -153,7 +153,7 @@ struct Context {
   ui::Spinbox column_width;
   int count_selection_changed = 0;
 
-  Context() : table_model(ui::TableModel::New(page_model)) { page_model.bind(table_model); }
+  Context() : table_model(ui::TableModel::make(page_model)) { page_model.bind(table_model); }
 
   ui::VerticalBox make_page();
 };
@@ -278,7 +278,7 @@ ui::VerticalBox Context::make_page() {
   ui::Table::Params params;
   params.model = &table_model;
   params.row_background_color_model_column = 3;
-  ui::Table table = ui::Table::New(params);
+  ui::Table table = ui::Table::make(params);
   this->table = table.raw();
 
   ui::TableTextColumnParams text_params;
@@ -295,38 +295,38 @@ ui::VerticalBox Context::make_page() {
       .on_row_clicked(on_row_clicked, this)
       .on_row_double_clicked(on_row_double_clicked, this);
 
-  lbl_row_clicked = ui::Label::New("Clicked row -");
-  lbl_row_double_clicked = ui::Label::New("Double clicked row -");
-  lbl_num_selected_rows = ui::Label::New("");
-  lbl_sum_selected_rows = ui::Label::New("");
-  lbl_count_selection_changed = ui::Label::New("");
+  lbl_row_clicked = ui::Label::make("Clicked row -");
+  lbl_row_double_clicked = ui::Label::make("Double clicked row -");
+  lbl_num_selected_rows = ui::Label::make("");
+  lbl_sum_selected_rows = ui::Label::make("");
+  lbl_count_selection_changed = ui::Label::make("");
 
-  column_id = ui::Spinbox::New(0, 5);
-  column_width = ui::Spinbox::New(-1, 1000000);
+  column_id = ui::Spinbox::make(0, 5);
+  column_width = ui::Spinbox::make(-1, 1000000);
 
-  return ui::VerticalBox::New()
-      .append(ui::HorizontalBox::New()
+  return ui::VerticalBox::make()
+      .append(ui::HorizontalBox::make()
                   .padded(true)
-                  .append(ui::Checkbox::New("Header Visible")
+                  .append(ui::Checkbox::make("Header Visible")
                               .set_checked(table.header_visible())
                               .on_toggled(header_visible_toggled, this))
-                  .append(ui::Separator::NewVertical())
-                  .append(ui::Combobox::New()
+                  .append(ui::Separator::make_vertical())
+                  .append(ui::Combobox::make()
                               .append("None")
                               .append("ZeroOrOne")
                               .append("One")
                               .append("ZeroOrMany")
                               .set_selected(static_cast<int>(table.selection_mode()))
                               .on_selected(selection_mode_on_selected, this))
-                  .append(ui::Separator::NewVertical())
-                  .append(ui::Label::New("Column"))
+                  .append(ui::Separator::make_vertical())
+                  .append(ui::Label::make("Column"))
                   .append(column_id.on_changed(changed_column_id, this))
-                  .append(ui::Label::New("Width"))
+                  .append(ui::Label::make("Width"))
                   .append(column_width.on_changed(changed_column_width, this))
-                  .append(ui::Separator::NewVertical())
-                  .append(ui::Button::New("Select Checked").on_clicked(select_checked, this)))
+                  .append(ui::Separator::make_vertical())
+                  .append(ui::Button::make("Select Checked").on_clicked(select_checked, this)))
       .append(table, true)
-      .append(ui::HorizontalBox::New()
+      .append(ui::HorizontalBox::make()
                   .padded(true)
                   .append(lbl_row_clicked)
                   .append(lbl_row_double_clicked)
@@ -339,18 +339,18 @@ ui::VerticalBox Context::make_page() {
 
 int main() {
   std::string err;
-  if (!ui::Application::Init(&err)) {
+  if (!ui::Application::init(&err)) {
     std::fprintf(stderr, "error initializing libui: %s\n", err.c_str());
     return 1;
   }
 
   {
     Context ctx;
-    ui::Window window = ui::Window::New("libui Table Demo", 800, 600, false);
+    ui::Window window = ui::Window::make("libui Table Demo", 800, 600, false);
     window.on_closing(on_closing, nullptr);
     window.set_child(ctx.make_page()).margined(true).show();
     ui::Application::run();
   }
-  ui::Application::Uninit();
+  ui::Application::uninit();
   return 0;
 }

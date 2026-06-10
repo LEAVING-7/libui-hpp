@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <string>
@@ -92,6 +91,16 @@ struct Widget {
     }
   }
 
+  D copy(D &out) {
+    out = static_cast<D &>(*this);
+    return static_cast<D &>(*this);
+  }
+
+  template <typename... Args>
+  static D make_into(D &out, Args &&...args) {
+    return D::make(std::forward<Args>(args)...).copy(out);
+  }
+
  protected:
   static D from(R *raw) {
     D result;
@@ -133,12 +142,24 @@ struct BoxBase : Widget<D, uiBox> {
     uiBoxAppend(this->w, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
     return copy();
   }
+
+  template <typename W>
+  D append_stretchy(W &child) {
+    uiBoxAppend(this->w, child.ctrl(), 1);
+    return copy();
+  }
+
+  template <typename W>
+  D append_stretchy(W &&child) {
+    uiBoxAppend(this->w, std::forward<W>(child).ctrl(), 1);
+    return copy();
+  }
 };
 
 struct Application {
   Application() = delete;
 
-  static bool Init(std::string *err) {
+  static bool init(std::string *err) {
     uiInitOptions options{};
     const char *init_err = uiInit(&options);
     if (init_err != nullptr) {
@@ -151,7 +172,7 @@ struct Application {
     return true;
   }
 
-  static void Uninit() { uiUninit(); }
+  static void uninit() { uiUninit(); }
 
   static void run() { uiMain(); }
 
@@ -167,13 +188,11 @@ struct Application {
 
   static void main_steps() { uiMainSteps(); }
 
-  static void on_should_quit(int (*fn)(void *data), void *data) {
-    uiOnShouldQuit(fn, data);
-  }
+  static void on_should_quit(int (*fn)(void *data), void *data) { uiOnShouldQuit(fn, data); }
 };
 
 struct Window : Widget<Window, uiWindow> {
-  static Window New(const char *title, int width, int height, bool has_menubar) {
+  static Window make(const char *title, int width, int height, bool has_menubar) {
     return from(uiNewWindow(title, width, height, has_menubar ? 1 : 0));
   }
 
@@ -264,37 +283,37 @@ struct Window : Widget<Window, uiWindow> {
 };
 
 struct VerticalBox : BoxBase<VerticalBox> {
-  static VerticalBox New() { return from(uiNewVerticalBox()); }
+  static VerticalBox make() { return from(uiNewVerticalBox()); }
 
   template <typename... W, typename std::enable_if_t<
                                (sizeof...(W) > 0)
                                    && ((sizeof...(W) > 1)
                                        || (!std::is_same_v<std::decay_t<W>, VerticalBox> && ...)),
                                int> = 0>
-  static VerticalBox New(W &&...children) {
-    VerticalBox result = New();
+  static VerticalBox make(W &&...children) {
+    VerticalBox result = make();
     (result.append(std::forward<W>(children)), ...);
     return result;
   }
 };
 
 struct HorizontalBox : BoxBase<HorizontalBox> {
-  static HorizontalBox New() { return from(uiNewHorizontalBox()); }
+  static HorizontalBox make() { return from(uiNewHorizontalBox()); }
 
   template <typename... W, typename std::enable_if_t<
                                (sizeof...(W) > 0)
                                    && ((sizeof...(W) > 1)
                                        || (!std::is_same_v<std::decay_t<W>, HorizontalBox> && ...)),
                                int> = 0>
-  static HorizontalBox New(W &&...children) {
-    HorizontalBox result = New();
+  static HorizontalBox make(W &&...children) {
+    HorizontalBox result = make();
     (result.append(std::forward<W>(children)), ...);
     return result;
   }
 };
 
 struct Button : Widget<Button, uiButton> {
-  static Button New(const char *text) { return from(uiNewButton(text)); }
+  static Button make(const char *text) { return from(uiNewButton(text)); }
 
   Text text() const { return detail::adopt_text(uiButtonText(w)); }
 
@@ -310,7 +329,7 @@ struct Button : Widget<Button, uiButton> {
 };
 
 struct Checkbox : Widget<Checkbox, uiCheckbox> {
-  static Checkbox New(const char *text) { return from(uiNewCheckbox(text)); }
+  static Checkbox make(const char *text) { return from(uiNewCheckbox(text)); }
 
   Text text() const { return detail::adopt_text(uiCheckboxText(w)); }
 
@@ -333,7 +352,7 @@ struct Checkbox : Widget<Checkbox, uiCheckbox> {
 };
 
 struct Label : Widget<Label, uiLabel> {
-  static Label New(const char *text) { return from(uiNewLabel(text)); }
+  static Label make(const char *text) { return from(uiNewLabel(text)); }
 
   Text text() const { return detail::adopt_text(uiLabelText(w)); }
 
@@ -344,11 +363,11 @@ struct Label : Widget<Label, uiLabel> {
 };
 
 struct Entry : Widget<Entry, uiEntry> {
-  static Entry New() { return from(uiNewEntry()); }
+  static Entry make() { return from(uiNewEntry()); }
 
-  static Entry NewPassword() { return from(uiNewPasswordEntry()); }
+  static Entry make_password() { return from(uiNewPasswordEntry()); }
 
-  static Entry NewSearch() { return from(uiNewSearchEntry()); }
+  static Entry make_search() { return from(uiNewSearchEntry()); }
 
   Text text() const { return detail::adopt_text(uiEntryText(w)); }
 
@@ -371,7 +390,7 @@ struct Entry : Widget<Entry, uiEntry> {
 };
 
 struct Tab : Widget<Tab, uiTab> {
-  static Tab New() { return from(uiNewTab()); }
+  static Tab make() { return from(uiNewTab()); }
 
   int selected() const { return uiTabSelected(w); }
 
@@ -425,7 +444,7 @@ struct Tab : Widget<Tab, uiTab> {
 };
 
 struct Group : Widget<Group, uiGroup> {
-  static Group New(const char *title) { return from(uiNewGroup(title)); }
+  static Group make(const char *title) { return from(uiNewGroup(title)); }
 
   Text title() const { return detail::adopt_text(uiGroupTitle(w)); }
 
@@ -455,7 +474,7 @@ struct Group : Widget<Group, uiGroup> {
 };
 
 struct Spinbox : Widget<Spinbox, uiSpinbox> {
-  static Spinbox New(int min, int max) { return from(uiNewSpinbox(min, max)); }
+  static Spinbox make(int min, int max) { return from(uiNewSpinbox(min, max)); }
 
   int value() const { return uiSpinboxValue(w); }
 
@@ -471,7 +490,7 @@ struct Spinbox : Widget<Spinbox, uiSpinbox> {
 };
 
 struct Slider : Widget<Slider, uiSlider> {
-  static Slider New(int min, int max) { return from(uiNewSlider(min, max)); }
+  static Slider make(int min, int max) { return from(uiNewSlider(min, max)); }
 
   int value() const { return uiSliderValue(w); }
 
@@ -504,7 +523,7 @@ struct Slider : Widget<Slider, uiSlider> {
 };
 
 struct ProgressBar : Widget<ProgressBar, uiProgressBar> {
-  static ProgressBar New() { return from(uiNewProgressBar()); }
+  static ProgressBar make() { return from(uiNewProgressBar()); }
 
   int value() const { return uiProgressBarValue(w); }
 
@@ -515,7 +534,7 @@ struct ProgressBar : Widget<ProgressBar, uiProgressBar> {
 };
 
 struct Combobox : Widget<Combobox, uiCombobox> {
-  static Combobox New() { return from(uiNewCombobox()); }
+  static Combobox make() { return from(uiNewCombobox()); }
 
   Combobox append(const char *text) {
     uiComboboxAppend(w, text);
@@ -553,7 +572,7 @@ struct Combobox : Widget<Combobox, uiCombobox> {
 };
 
 struct EditableCombobox : Widget<EditableCombobox, uiEditableCombobox> {
-  static EditableCombobox New() { return from(uiNewEditableCombobox()); }
+  static EditableCombobox make() { return from(uiNewEditableCombobox()); }
 
   EditableCombobox append(const char *text) {
     uiEditableComboboxAppend(w, text);
@@ -574,7 +593,7 @@ struct EditableCombobox : Widget<EditableCombobox, uiEditableCombobox> {
 };
 
 struct RadioButtons : Widget<RadioButtons, uiRadioButtons> {
-  static RadioButtons New() { return from(uiNewRadioButtons()); }
+  static RadioButtons make() { return from(uiNewRadioButtons()); }
 
   RadioButtons append(const char *text) {
     uiRadioButtonsAppend(w, text);
@@ -595,11 +614,11 @@ struct RadioButtons : Widget<RadioButtons, uiRadioButtons> {
 };
 
 struct DateTimePicker : Widget<DateTimePicker, uiDateTimePicker> {
-  static DateTimePicker New() { return from(uiNewDateTimePicker()); }
+  static DateTimePicker make() { return from(uiNewDateTimePicker()); }
 
-  static DateTimePicker NewDate() { return from(uiNewDatePicker()); }
+  static DateTimePicker make_date() { return from(uiNewDatePicker()); }
 
-  static DateTimePicker NewTime() { return from(uiNewTimePicker()); }
+  static DateTimePicker make_time() { return from(uiNewTimePicker()); }
 
   void time(struct tm *out) const { uiDateTimePickerTime(w, out); }
 
@@ -615,9 +634,9 @@ struct DateTimePicker : Widget<DateTimePicker, uiDateTimePicker> {
 };
 
 struct MultilineEntry : Widget<MultilineEntry, uiMultilineEntry> {
-  static MultilineEntry New() { return from(uiNewMultilineEntry()); }
+  static MultilineEntry make() { return from(uiNewMultilineEntry()); }
 
-  static MultilineEntry NewNonWrapping() { return from(uiNewNonWrappingMultilineEntry()); }
+  static MultilineEntry make_non_wrapping() { return from(uiNewNonWrappingMultilineEntry()); }
 
   Text text() const { return detail::adopt_text(uiMultilineEntryText(w)); }
 
@@ -645,7 +664,7 @@ struct MultilineEntry : Widget<MultilineEntry, uiMultilineEntry> {
 };
 
 struct ColorButton : Widget<ColorButton, uiColorButton> {
-  static ColorButton New() { return from(uiNewColorButton()); }
+  static ColorButton make() { return from(uiNewColorButton()); }
 
   void color(double *r, double *g, double *b, double *a) const {
     uiColorButtonColor(w, r, g, b, a);
@@ -697,7 +716,7 @@ struct MenuItem {
 struct Menu {
   uiMenu *m = nullptr;
 
-  static Menu New(const char *name) {
+  static Menu make(const char *name) {
     Menu result;
     result.m = uiNewMenu(name);
     return result;
@@ -772,7 +791,7 @@ struct FontDescriptor {
 };
 
 struct FontButton : Widget<FontButton, uiFontButton> {
-  static FontButton New() { return from(uiNewFontButton()); }
+  static FontButton make() { return from(uiNewFontButton()); }
 
   FontDescriptor font() const {
     FontDescriptor result;
@@ -791,7 +810,7 @@ class Image {
  public:
   Image() = default;
 
-  static Image New(double width, double height) {
+  static Image make(double width, double height) {
     Image result;
     result.img_ = uiNewImage(width, height);
     return result;
@@ -927,7 +946,7 @@ struct TableModelHandler {
 
 class TableModel {
  public:
-  static TableModel New(TableModelHandler &handler) { return TableModel(handler); }
+  static TableModel make(TableModelHandler &handler) { return TableModel(handler); }
 
   TableModel(const TableModel &) = delete;
   TableModel &operator=(const TableModel &) = delete;
@@ -1061,7 +1080,7 @@ struct Table : Widget<Table, uiTable> {
     int row_background_color_model_column = -1;
   };
 
-  static Table New(Params &params) {
+  static Table make(Params &params) {
     uiTableParams p{};
     p.Model = params.model->raw();
     p.RowBackgroundColorModelColumn = params.row_background_color_model_column;
@@ -1193,13 +1212,13 @@ struct Table : Widget<Table, uiTable> {
 };
 
 struct Separator : Widget<Separator, uiSeparator> {
-  static Separator NewHorizontal() { return from(uiNewHorizontalSeparator()); }
+  static Separator make_horizontal() { return from(uiNewHorizontalSeparator()); }
 
-  static Separator NewVertical() { return from(uiNewVerticalSeparator()); }
+  static Separator make_vertical() { return from(uiNewVerticalSeparator()); }
 };
 
 struct Form : Widget<Form, uiForm> {
-  static Form New() { return from(uiNewForm()); }
+  static Form make() { return from(uiNewForm()); }
 
   bool padded() const { return uiFormPadded(w) != 0; }
 
@@ -1229,7 +1248,7 @@ struct Form : Widget<Form, uiForm> {
 };
 
 struct Grid : Widget<Grid, uiGrid> {
-  static Grid New() { return from(uiNewGrid()); }
+  static Grid make() { return from(uiNewGrid()); }
 
   bool padded() const { return uiGridPadded(w) != 0; }
 

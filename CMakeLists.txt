@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(libui-widget-gallery LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -35,7 +35,7 @@ target_link_libraries(widget-gallery PRIVATE libui_ng)
 if(WIN32 AND MSVC)
     # resources.rc already embeds Common Controls 6 manifest; disable linker default.
     # WIN32 sets /SUBSYSTEM:WINDOWS; /ENTRY:mainCRTStartup keeps int main().
-    target_link_options(widget-gallery PRIVATE /ENTRY:mainCRTStartup /MANIFEST:NO)
+    target_link_options(widget-gallery PRIVATE /SUBSYSTEM:CONSOLE /ENTRY:mainCRTStartup /MANIFEST:NO)
 endif()
 
 if(APPLE)

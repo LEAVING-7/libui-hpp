@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 
 #include <ui.hpp>
 
@@ -47,56 +47,52 @@ static void on_slider_changed(uiSlider *sender, void *) {
 }
 
 static ui::VerticalBox make_basic_controls_page() {
-  return ui::VerticalBox::New(
-             ui::HorizontalBox::New(ui::Button::New("Button"), ui::Checkbox::New("Checkbox"))
+  return ui::VerticalBox::make(
+             ui::HorizontalBox::make(ui::Button::make("Button"), ui::Checkbox::make("Checkbox"))
                  .padded(true),
-             ui::Label::New("This is a label.\nLabels can span multiple lines."),
-             ui::Separator::NewHorizontal())
-      .padded(true)
-      .append(
-          ui::Group::New("Entries").margined(true).set_child(
-              ui::Form::New()
-                  .padded(true)
-                  .append("Entry", ui::Entry::New())
-                  .append("Password Entry", ui::Entry::NewPassword())
-                  .append("Search Entry", ui::Entry::NewSearch())
-                  .append("Multiline Entry", ui::MultilineEntry::New(), true)
-                  .append("Multiline Entry No Wrap", ui::MultilineEntry::NewNonWrapping(), true)),
-          true);
+             ui::Label::make("This is a label.\nLabels can span multiple lines."),
+             ui::Separator::make_horizontal())
+      .append_stretchy(ui::Group::make("Entries").margined(true).set_child(
+          ui::Form::make()
+              .padded(true)
+              .append("Entry", ui::Entry::make())
+              .append("Password Entry", ui::Entry::make_password())
+              .append("Search Entry", ui::Entry::make_search())
+              .append("Multiline Entry", ui::MultilineEntry::make(), true)
+              .append("Multiline Entry No Wrap", ui::MultilineEntry::make_non_wrapping(), true)))
+      .padded(true);
 }
 
 static ui::HorizontalBox make_numbers_page() {
-  g_spinbox = ui::Spinbox::New(0, 100).on_changed(on_spinbox_changed, nullptr);
-  g_slider = ui::Slider::New(0, 100).on_changed(on_slider_changed, nullptr);
-  g_progress = ui::ProgressBar::New();
-
-  return ui::HorizontalBox::New()
-      .padded(true)
-      .append(ui::Group::New("Numbers").margined(true).set_child(
-                  ui::VerticalBox::New(g_spinbox, g_slider, g_progress,
-                                       ui::ProgressBar::New().set_value(-1))
-                      .padded(true)),
-              true)
-      .append(ui::Group::New("Lists").margined(true).set_child(
-                  ui::VerticalBox::New(ui::Combobox::New()
-                                           .append("Combobox Item 1")
-                                           .append("Combobox Item 2")
-                                           .append("Combobox Item 3"),
-                                       ui::EditableCombobox::New()
-                                           .append("Editable Item 1")
-                                           .append("Editable Item 2")
-                                           .append("Editable Item 3"),
-                                       ui::RadioButtons::New()
-                                           .append("Radio Button 1")
-                                           .append("Radio Button 2")
-                                           .append("Radio Button 3"))
-                      .padded(true)),
-              true);
+  return ui::HorizontalBox::make()
+      .append_stretchy(ui::Group::make("Numbers").margined(true).set_child(
+          ui::VerticalBox::make(
+              ui::Spinbox::make_into(g_spinbox, 0, 100).on_changed(on_spinbox_changed, nullptr),
+              ui::Slider::make_into(g_slider, 0, 100).on_changed(on_slider_changed, nullptr),
+              ui::ProgressBar::make_into(g_progress), ui::ProgressBar::make().set_value(-1))
+              .padded(true)))
+      .append_stretchy(ui::Group::make("Lists").margined(true).set_child(
+          ui::VerticalBox::make(ui::Combobox::make()
+                                    .append("Combobox Item 1")
+                                    .append("Combobox Item 2")
+                                    .append("Combobox Item 3"),
+                                ui::EditableCombobox::make()
+                                    .append("Editable Item 1")
+                                    .append("Editable Item 2")
+                                    .append("Editable Item 3"),
+                                ui::RadioButtons::make()
+                                    .append("Radio Button 1")
+                                    .append("Radio Button 2")
+                                    .append("Radio Button 3"))
+              .padded(true)))
+      .padded(true);
 }
 
 static void on_open_file_clicked(uiButton *sender, void *data) {
   (void)sender;
   ui::Entry *entry = static_cast<ui::Entry *>(data);
+  printf("sender: %p, data: %p, entry_raw: %p\n", sender, data, entry->raw());
+
   ui::Text filename = ui::open_file(*g_mainwin);
   if (filename.empty()) {
     entry->set_text("(cancelled)");
@@ -107,6 +103,8 @@ static void on_open_file_clicked(uiButton *sender, void *data) {
 
 static void on_open_folder_clicked(uiButton *sender, void *data) {
   (void)sender;
+  printf("sender: %p, data: %p\n", sender, data);
+
   ui::Entry *entry = static_cast<ui::Entry *>(data);
   ui::Text filename = ui::open_folder(*g_mainwin);
   if (filename.empty()) {
@@ -118,6 +116,7 @@ static void on_open_folder_clicked(uiButton *sender, void *data) {
 
 static void on_save_file_clicked(uiButton *sender, void *data) {
   (void)sender;
+  printf("sender: %p, data: %p\n", sender, data);
   ui::Entry *entry = static_cast<ui::Entry *>(data);
   ui::Text filename = ui::save_file(*g_mainwin);
   if (filename.empty()) {
@@ -140,62 +139,60 @@ static void on_msg_box_error_clicked(uiButton *sender, void *) {
 }
 
 static ui::HorizontalBox make_data_choosers_page() {
-  g_open_file_entry = ui::Entry::New().readonly(true);
-  g_open_file_button =
-      ui::Button::New("  Open File  ").on_clicked(on_open_file_clicked, &g_open_file_entry);
-  g_open_folder_entry = ui::Entry::New().readonly(true);
-  g_open_folder_button =
-      ui::Button::New("Open Folder").on_clicked(on_open_folder_clicked, &g_open_folder_entry);
-  g_save_file_entry = ui::Entry::New().readonly(true);
-  g_save_file_button =
-      ui::Button::New("  Save File  ").on_clicked(on_save_file_clicked, &g_save_file_entry);
-  g_msg_box_button = ui::Button::New("Message Box").on_clicked(on_msg_box_clicked, nullptr);
-  g_error_box_button = ui::Button::New("Error Box").on_clicked(on_msg_box_error_clicked, nullptr);
-
-  return ui::HorizontalBox::New()
-      .padded(true)
-      .append(ui::VerticalBox::New(ui::DateTimePicker::NewDate(), ui::DateTimePicker::NewTime(),
-                                   ui::DateTimePicker::New(), ui::FontButton::New(),
-                                   ui::ColorButton::New())
-                  .padded(true))
-      .append(ui::Separator::NewVertical())
-      .append(
-          ui::VerticalBox::New(
-              ui::Grid::New()
+  return ui::HorizontalBox::make(
+             ui::VerticalBox::make(ui::DateTimePicker::make_date(), ui::DateTimePicker::make_time(),
+                                   ui::DateTimePicker::make(), ui::FontButton::make(),
+                                   ui::ColorButton::make())
+                 .padded(true),
+             ui::Separator::make_vertical())
+      .append_stretchy(
+          ui::VerticalBox::make(
+              ui::Grid::make()
                   .padded(true)
-                  .append(g_open_file_button, 0, 0, 1, 1, false, uiAlignFill, false, uiAlignFill)
-                  .append(g_open_file_entry, 1, 0, 1, 1, true, uiAlignFill, false, uiAlignFill)
-                  .append(g_open_folder_button, 0, 1, 1, 1, false, uiAlignFill, false, uiAlignFill)
-                  .append(g_open_folder_entry, 1, 1, 1, 1, true, uiAlignFill, false, uiAlignFill)
-                  .append(g_save_file_button, 0, 2, 1, 1, false, uiAlignFill, false, uiAlignFill)
-                  .append(g_save_file_entry, 1, 2, 1, 1, true, uiAlignFill, false, uiAlignFill)
-                  .append(ui::Grid::New()
+                  .append(ui::Entry::make_into(g_open_file_entry).readonly(true), 1, 0, 1, 1, true,
+                          uiAlignFill, false, uiAlignFill)
+                  .append(ui::Button::make_into(g_open_file_button, "  Open File  ")
+                              .on_clicked(on_open_file_clicked, &g_open_file_entry),
+                          0, 0, 1, 1, false, uiAlignFill, false, uiAlignFill)
+                  .append(ui::Entry::make_into(g_open_folder_entry).readonly(true), 1, 1, 1, 1,
+                          true, uiAlignFill, false, uiAlignFill)
+                  .append(ui::Button::make_into(g_open_folder_button, "Open Folder")
+                              .on_clicked(on_open_folder_clicked, &g_open_folder_entry),
+                          0, 1, 1, 1, false, uiAlignFill, false, uiAlignFill)
+                  .append(ui::Entry::make_into(g_save_file_entry).readonly(true), 1, 2, 1, 1, true,
+                          uiAlignFill, false, uiAlignFill)
+                  .append(ui::Button::make_into(g_save_file_button, "  Save File  ")
+                              .on_clicked(on_save_file_clicked, &g_save_file_entry),
+                          0, 2, 1, 1, false, uiAlignFill, false, uiAlignFill)
+                  .append(ui::Grid::make()
                               .padded(true)
-                              .append(g_msg_box_button, 0, 0, 1, 1, false, uiAlignFill, false,
-                                      uiAlignFill)
-                              .append(g_error_box_button, 1, 0, 1, 1, false, uiAlignFill, false,
-                                      uiAlignFill),
+                              .append(ui::Button::make_into(g_msg_box_button, "Message Box")
+                                          .on_clicked(on_msg_box_clicked, nullptr),
+                                      0, 0, 1, 1, false, uiAlignFill, false, uiAlignFill)
+                              .append(ui::Button::make_into(g_error_box_button, "Error Box")
+                                          .on_clicked(on_msg_box_error_clicked, nullptr),
+                                      1, 0, 1, 1, false, uiAlignFill, false, uiAlignFill),
                           0, 3, 2, 1, false, uiAlignCenter, false, uiAlignStart))
-              .padded(true),
-          true);
+              .padded(true))
+      .padded(true);
 }
 
 int main() {
   std::string err;
-  if (!ui::Application::Init(&err)) {
+  if (!ui::Application::init(&err)) {
     fprintf(stderr, "error initializing libui: %s\n", err.c_str());
     return 1;
   }
 
   {
-    ui::Window mainwin = ui::Window::New("libui Control Gallery", 640, 480, true);
+    ui::Window mainwin = ui::Window::make("libui Control Gallery", 640, 480, true);
     g_mainwin = &mainwin;
 
     AppContext ctx = {&mainwin};
     mainwin.on_closing(on_closing, &ctx);
     ui::Application::on_should_quit(on_should_quit, &ctx);
 
-    ui::Tab tab = ui::Tab::New();
+    ui::Tab tab = ui::Tab::make();
     mainwin.set_child(tab);
     mainwin.margined(true);
 
@@ -209,6 +206,6 @@ int main() {
     mainwin.show();
     ui::Application::run();
   }
-  ui::Application::Uninit();
+  ui::Application::uninit();
   return 0;
 }
