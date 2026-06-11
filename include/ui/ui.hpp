@@ -68,11 +68,9 @@ constexpr int kTableModelColumnAlwaysEditable = uiTableModelColumnAlwaysEditable
 
 template <typename D, typename R>
 struct Widget {
-  R *w = nullptr;
+  uiControl *ctrl() const { return uiControl(w_); }
 
-  uiControl *ctrl() const { return uiControl(w); }
-
-  R *raw() const { return w; }
+  R *raw() const { return w_; }
 
   void show() { uiControlShow(ctrl()); }
 
@@ -87,9 +85,9 @@ struct Widget {
   bool enabled() const { return uiControlEnabled(ctrl()) != 0; }
 
   void destroy() {
-    if (w != nullptr) {
+    if (w_ != nullptr) {
       uiControlDestroy(ctrl());
-      w = nullptr;
+      w_ = nullptr;
     }
   }
 
@@ -103,57 +101,59 @@ struct Widget {
     return D::make(std::forward<Args>(args)...).copy(out);
   }
 
- protected:
-  static D from(R *raw) {
+  static D wrap(R *raw) {
     D result;
-    result.w = raw;
+    result.w_ = raw;
     return result;
   }
+
+ protected:
+  R *w_ = nullptr;
 };
 
 template <typename D>
 struct BoxBase : Widget<D, uiBox> {
-  bool padded() const { return uiBoxPadded(this->w) != 0; }
+  bool padded() const { return uiBoxPadded(this->w_) != 0; }
 
   D copy() const {
     D result;
-    result.w = this->w;
+    result.w_ = this->w_;
     return result;
   }
 
   D padded(bool value) {
-    uiBoxSetPadded(this->w, value ? 1 : 0);
+    uiBoxSetPadded(this->w_, value ? 1 : 0);
     return copy();
   }
 
-  int num_children() const { return uiBoxNumChildren(this->w); }
+  int num_children() const { return uiBoxNumChildren(this->w_); }
 
   D delete_at(int index) {
-    uiBoxDelete(this->w, index);
+    uiBoxDelete(this->w_, index);
     return copy();
   }
 
   template <typename W>
   D append(W &child, bool stretchy = false) {
-    uiBoxAppend(this->w, child.ctrl(), stretchy ? 1 : 0);
+    uiBoxAppend(this->w_, child.ctrl(), stretchy ? 1 : 0);
     return copy();
   }
 
   template <typename W>
   D append(W &&child, bool stretchy = false) {
-    uiBoxAppend(this->w, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
+    uiBoxAppend(this->w_, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
     return copy();
   }
 
   template <typename W>
   D append_stretchy(W &child) {
-    uiBoxAppend(this->w, child.ctrl(), 1);
+    uiBoxAppend(this->w_, child.ctrl(), 1);
     return copy();
   }
 
   template <typename W>
   D append_stretchy(W &&child) {
-    uiBoxAppend(this->w, std::forward<W>(child).ctrl(), 1);
+    uiBoxAppend(this->w_, std::forward<W>(child).ctrl(), 1);
     return copy();
   }
 };
@@ -195,97 +195,95 @@ struct Application {
 
 struct Window : Widget<Window, uiWindow> {
   static Window make(const char *title, int width, int height, bool has_menubar) {
-    return from(uiNewWindow(title, width, height, has_menubar ? 1 : 0));
+    return wrap(uiNewWindow(title, width, height, has_menubar ? 1 : 0));
   }
 
-  static Window wrap(uiWindow *raw) { return from(raw); }
-
-  Text title() const { return detail::adopt_text(uiWindowTitle(w)); }
+  Text title() const { return detail::adopt_text(uiWindowTitle(w_)); }
 
   Window set_title(const char *title) {
-    uiWindowSetTitle(w, title);
+    uiWindowSetTitle(w_, title);
     return *this;
   }
 
-  void position(int *x, int *y) const { uiWindowPosition(w, x, y); }
+  void position(int *x, int *y) const { uiWindowPosition(w_, x, y); }
 
   Window set_position(int x, int y) {
-    uiWindowSetPosition(w, x, y);
+    uiWindowSetPosition(w_, x, y);
     return *this;
   }
 
-  void content_size(int *width, int *height) const { uiWindowContentSize(w, width, height); }
+  void content_size(int *width, int *height) const { uiWindowContentSize(w_, width, height); }
 
   Window set_content_size(int width, int height) {
-    uiWindowSetContentSize(w, width, height);
+    uiWindowSetContentSize(w_, width, height);
     return *this;
   }
 
-  bool fullscreen() const { return uiWindowFullscreen(w) != 0; }
+  bool fullscreen() const { return uiWindowFullscreen(w_) != 0; }
 
   Window fullscreen(bool value) {
-    uiWindowSetFullscreen(w, value ? 1 : 0);
+    uiWindowSetFullscreen(w_, value ? 1 : 0);
     return *this;
   }
 
-  bool focused() const { return uiWindowFocused(w) != 0; }
+  bool focused() const { return uiWindowFocused(w_) != 0; }
 
-  bool borderless() const { return uiWindowBorderless(w) != 0; }
+  bool borderless() const { return uiWindowBorderless(w_) != 0; }
 
   Window borderless(bool value) {
-    uiWindowSetBorderless(w, value ? 1 : 0);
+    uiWindowSetBorderless(w_, value ? 1 : 0);
     return *this;
   }
 
-  bool margined() const { return uiWindowMargined(w) != 0; }
+  bool margined() const { return uiWindowMargined(w_) != 0; }
 
   Window margined(bool value) {
-    uiWindowSetMargined(w, value ? 1 : 0);
+    uiWindowSetMargined(w_, value ? 1 : 0);
     return *this;
   }
 
-  bool resizable() const { return uiWindowResizeable(w) != 0; }
+  bool resizable() const { return uiWindowResizeable(w_) != 0; }
 
   Window resizable(bool value) {
-    uiWindowSetResizeable(w, value ? 1 : 0);
+    uiWindowSetResizeable(w_, value ? 1 : 0);
     return *this;
   }
 
   template <typename W>
   Window set_child(W &child) {
-    uiWindowSetChild(w, child.ctrl());
+    uiWindowSetChild(w_, child.ctrl());
     return *this;
   }
 
   template <typename W>
   Window set_child(W &&child) {
-    uiWindowSetChild(w, std::forward<W>(child).ctrl());
+    uiWindowSetChild(w_, std::forward<W>(child).ctrl());
     return *this;
   }
 
   Window on_closing(int (*fn)(uiWindow *sender, void *data), void *data) {
-    uiWindowOnClosing(w, fn, data);
+    uiWindowOnClosing(w_, fn, data);
     return *this;
   }
 
   Window on_position_changed(void (*fn)(uiWindow *sender, void *data), void *data) {
-    uiWindowOnPositionChanged(w, fn, data);
+    uiWindowOnPositionChanged(w_, fn, data);
     return *this;
   }
 
   Window on_content_size_changed(void (*fn)(uiWindow *sender, void *data), void *data) {
-    uiWindowOnContentSizeChanged(w, fn, data);
+    uiWindowOnContentSizeChanged(w_, fn, data);
     return *this;
   }
 
   Window on_focus_changed(void (*fn)(uiWindow *sender, void *data), void *data) {
-    uiWindowOnFocusChanged(w, fn, data);
+    uiWindowOnFocusChanged(w_, fn, data);
     return *this;
   }
 };
 
 struct VerticalBox : BoxBase<VerticalBox> {
-  static VerticalBox make() { return from(uiNewVerticalBox()); }
+  static VerticalBox make() { return wrap(uiNewVerticalBox()); }
 
   template <typename... W, typename std::enable_if_t<
                                (sizeof...(W) > 0)
@@ -300,7 +298,7 @@ struct VerticalBox : BoxBase<VerticalBox> {
 };
 
 struct HorizontalBox : BoxBase<HorizontalBox> {
-  static HorizontalBox make() { return from(uiNewHorizontalBox()); }
+  static HorizontalBox make() { return wrap(uiNewHorizontalBox()); }
 
   template <typename... W, typename std::enable_if_t<
                                (sizeof...(W) > 0)
@@ -315,370 +313,370 @@ struct HorizontalBox : BoxBase<HorizontalBox> {
 };
 
 struct Button : Widget<Button, uiButton> {
-  static Button make(const char *text) { return from(uiNewButton(text)); }
+  static Button make(const char *text) { return wrap(uiNewButton(text)); }
 
-  Text text() const { return detail::adopt_text(uiButtonText(w)); }
+  Text text() const { return detail::adopt_text(uiButtonText(w_)); }
 
   Button set_text(const char *text) {
-    uiButtonSetText(w, text);
+    uiButtonSetText(w_, text);
     return *this;
   }
 
   Button on_clicked(void (*fn)(uiButton *sender, void *data), void *data) {
-    uiButtonOnClicked(w, fn, data);
+    uiButtonOnClicked(w_, fn, data);
     return *this;
   }
 };
 
 struct Checkbox : Widget<Checkbox, uiCheckbox> {
-  static Checkbox make(const char *text) { return from(uiNewCheckbox(text)); }
+  static Checkbox make(const char *text) { return wrap(uiNewCheckbox(text)); }
 
-  Text text() const { return detail::adopt_text(uiCheckboxText(w)); }
+  Text text() const { return detail::adopt_text(uiCheckboxText(w_)); }
 
   Checkbox set_text(const char *text) {
-    uiCheckboxSetText(w, text);
+    uiCheckboxSetText(w_, text);
     return *this;
   }
 
-  bool checked() const { return uiCheckboxChecked(w) != 0; }
+  bool checked() const { return uiCheckboxChecked(w_) != 0; }
 
   Checkbox set_checked(bool value) {
-    uiCheckboxSetChecked(w, value ? 1 : 0);
+    uiCheckboxSetChecked(w_, value ? 1 : 0);
     return *this;
   }
 
   Checkbox on_toggled(void (*fn)(uiCheckbox *sender, void *data), void *data) {
-    uiCheckboxOnToggled(w, fn, data);
+    uiCheckboxOnToggled(w_, fn, data);
     return *this;
   }
 };
 
 struct Label : Widget<Label, uiLabel> {
-  static Label make(const char *text) { return from(uiNewLabel(text)); }
+  static Label make(const char *text) { return wrap(uiNewLabel(text)); }
 
-  Text text() const { return detail::adopt_text(uiLabelText(w)); }
+  Text text() const { return detail::adopt_text(uiLabelText(w_)); }
 
   Label set_text(const char *text) {
-    uiLabelSetText(w, text);
+    uiLabelSetText(w_, text);
     return *this;
   }
 };
 
 struct Entry : Widget<Entry, uiEntry> {
-  static Entry make() { return from(uiNewEntry()); }
+  static Entry make() { return wrap(uiNewEntry()); }
 
-  static Entry make_password() { return from(uiNewPasswordEntry()); }
+  static Entry make_password() { return wrap(uiNewPasswordEntry()); }
 
-  static Entry make_search() { return from(uiNewSearchEntry()); }
+  static Entry make_search() { return wrap(uiNewSearchEntry()); }
 
-  Text text() const { return detail::adopt_text(uiEntryText(w)); }
+  Text text() const { return detail::adopt_text(uiEntryText(w_)); }
 
   Entry set_text(const char *text) {
-    uiEntrySetText(w, text);
+    uiEntrySetText(w_, text);
     return *this;
   }
 
-  bool readonly() const { return uiEntryReadOnly(w) != 0; }
+  bool readonly() const { return uiEntryReadOnly(w_) != 0; }
 
   Entry readonly(bool value) {
-    uiEntrySetReadOnly(w, value ? 1 : 0);
+    uiEntrySetReadOnly(w_, value ? 1 : 0);
     return *this;
   }
 
   Entry on_changed(void (*fn)(uiEntry *sender, void *data), void *data) {
-    uiEntryOnChanged(w, fn, data);
+    uiEntryOnChanged(w_, fn, data);
     return *this;
   }
 };
 
 struct Tab : Widget<Tab, uiTab> {
-  static Tab make() { return from(uiNewTab()); }
+  static Tab make() { return wrap(uiNewTab()); }
 
-  int selected() const { return uiTabSelected(w); }
+  int selected() const { return uiTabSelected(w_); }
 
   Tab set_selected(int index) {
-    uiTabSetSelected(w, index);
+    uiTabSetSelected(w_, index);
     return *this;
   }
 
-  int num_pages() const { return uiTabNumPages(w); }
+  int num_pages() const { return uiTabNumPages(w_); }
 
-  bool margined(int index) const { return uiTabMargined(w, index) != 0; }
+  bool margined(int index) const { return uiTabMargined(w_, index) != 0; }
 
   Tab set_margined(int index, bool value) {
-    uiTabSetMargined(w, index, value ? 1 : 0);
+    uiTabSetMargined(w_, index, value ? 1 : 0);
     return *this;
   }
 
   template <typename Page>
   Tab append(const char *name, Page &page) {
-    uiTabAppend(w, name, page.ctrl());
+    uiTabAppend(w_, name, page.ctrl());
     return *this;
   }
 
   template <typename Page>
   Tab append(const char *name, Page &&page) {
-    uiTabAppend(w, name, std::forward<Page>(page).ctrl());
+    uiTabAppend(w_, name, std::forward<Page>(page).ctrl());
     return *this;
   }
 
   template <typename Page>
   Tab insert_at(const char *name, int index, Page &page) {
-    uiTabInsertAt(w, name, index, page.ctrl());
+    uiTabInsertAt(w_, name, index, page.ctrl());
     return *this;
   }
 
   template <typename Page>
   Tab insert_at(const char *name, int index, Page &&page) {
-    uiTabInsertAt(w, name, index, std::forward<Page>(page).ctrl());
+    uiTabInsertAt(w_, name, index, std::forward<Page>(page).ctrl());
     return *this;
   }
 
   Tab delete_at(int index) {
-    uiTabDelete(w, index);
+    uiTabDelete(w_, index);
     return *this;
   }
 
   Tab on_selected(void (*fn)(uiTab *sender, void *data), void *data) {
-    uiTabOnSelected(w, fn, data);
+    uiTabOnSelected(w_, fn, data);
     return *this;
   }
 };
 
 struct Group : Widget<Group, uiGroup> {
-  static Group make(const char *title) { return from(uiNewGroup(title)); }
+  static Group make(const char *title) { return wrap(uiNewGroup(title)); }
 
-  Text title() const { return detail::adopt_text(uiGroupTitle(w)); }
+  Text title() const { return detail::adopt_text(uiGroupTitle(w_)); }
 
   Group set_title(const char *title) {
-    uiGroupSetTitle(w, title);
+    uiGroupSetTitle(w_, title);
     return *this;
   }
 
-  bool margined() const { return uiGroupMargined(w) != 0; }
+  bool margined() const { return uiGroupMargined(w_) != 0; }
 
   Group margined(bool value) {
-    uiGroupSetMargined(w, value ? 1 : 0);
+    uiGroupSetMargined(w_, value ? 1 : 0);
     return *this;
   }
 
   template <typename W>
   Group set_child(W &child) {
-    uiGroupSetChild(w, child.ctrl());
+    uiGroupSetChild(w_, child.ctrl());
     return *this;
   }
 
   template <typename W>
   Group set_child(W &&child) {
-    uiGroupSetChild(w, std::forward<W>(child).ctrl());
+    uiGroupSetChild(w_, std::forward<W>(child).ctrl());
     return *this;
   }
 };
 
 struct Spinbox : Widget<Spinbox, uiSpinbox> {
-  static Spinbox make(int min, int max) { return from(uiNewSpinbox(min, max)); }
+  static Spinbox make(int min, int max) { return wrap(uiNewSpinbox(min, max)); }
 
-  int value() const { return uiSpinboxValue(w); }
+  int value() const { return uiSpinboxValue(w_); }
 
   Spinbox set_value(int value) {
-    uiSpinboxSetValue(w, value);
+    uiSpinboxSetValue(w_, value);
     return *this;
   }
 
   Spinbox on_changed(void (*fn)(uiSpinbox *sender, void *data), void *data) {
-    uiSpinboxOnChanged(w, fn, data);
+    uiSpinboxOnChanged(w_, fn, data);
     return *this;
   }
 };
 
 struct Slider : Widget<Slider, uiSlider> {
-  static Slider make(int min, int max) { return from(uiNewSlider(min, max)); }
+  static Slider make(int min, int max) { return wrap(uiNewSlider(min, max)); }
 
-  int value() const { return uiSliderValue(w); }
+  int value() const { return uiSliderValue(w_); }
 
   Slider set_value(int value) {
-    uiSliderSetValue(w, value);
+    uiSliderSetValue(w_, value);
     return *this;
   }
 
-  bool has_tooltip() const { return uiSliderHasToolTip(w) != 0; }
+  bool has_tooltip() const { return uiSliderHasToolTip(w_) != 0; }
 
   Slider has_tooltip(bool value) {
-    uiSliderSetHasToolTip(w, value ? 1 : 0);
+    uiSliderSetHasToolTip(w_, value ? 1 : 0);
     return *this;
   }
 
   Slider set_range(int min, int max) {
-    uiSliderSetRange(w, min, max);
+    uiSliderSetRange(w_, min, max);
     return *this;
   }
 
   Slider on_changed(void (*fn)(uiSlider *sender, void *data), void *data) {
-    uiSliderOnChanged(w, fn, data);
+    uiSliderOnChanged(w_, fn, data);
     return *this;
   }
 
   Slider on_released(void (*fn)(uiSlider *sender, void *data), void *data) {
-    uiSliderOnReleased(w, fn, data);
+    uiSliderOnReleased(w_, fn, data);
     return *this;
   }
 };
 
 struct ProgressBar : Widget<ProgressBar, uiProgressBar> {
-  static ProgressBar make() { return from(uiNewProgressBar()); }
+  static ProgressBar make() { return wrap(uiNewProgressBar()); }
 
-  int value() const { return uiProgressBarValue(w); }
+  int value() const { return uiProgressBarValue(w_); }
 
   ProgressBar set_value(int value) {
-    uiProgressBarSetValue(w, value);
+    uiProgressBarSetValue(w_, value);
     return *this;
   }
 };
 
 struct Combobox : Widget<Combobox, uiCombobox> {
-  static Combobox make() { return from(uiNewCombobox()); }
+  static Combobox make() { return wrap(uiNewCombobox()); }
 
   Combobox append(const char *text) {
-    uiComboboxAppend(w, text);
+    uiComboboxAppend(w_, text);
     return *this;
   }
 
   Combobox insert_at(int index, const char *text) {
-    uiComboboxInsertAt(w, index, text);
+    uiComboboxInsertAt(w_, index, text);
     return *this;
   }
 
   Combobox delete_at(int index) {
-    uiComboboxDelete(w, index);
+    uiComboboxDelete(w_, index);
     return *this;
   }
 
   Combobox clear() {
-    uiComboboxClear(w);
+    uiComboboxClear(w_);
     return *this;
   }
 
-  int num_items() const { return uiComboboxNumItems(w); }
+  int num_items() const { return uiComboboxNumItems(w_); }
 
-  int selected() const { return uiComboboxSelected(w); }
+  int selected() const { return uiComboboxSelected(w_); }
 
   Combobox set_selected(int index) {
-    uiComboboxSetSelected(w, index);
+    uiComboboxSetSelected(w_, index);
     return *this;
   }
 
   Combobox on_selected(void (*fn)(uiCombobox *sender, void *data), void *data) {
-    uiComboboxOnSelected(w, fn, data);
+    uiComboboxOnSelected(w_, fn, data);
     return *this;
   }
 };
 
 struct EditableCombobox : Widget<EditableCombobox, uiEditableCombobox> {
-  static EditableCombobox make() { return from(uiNewEditableCombobox()); }
+  static EditableCombobox make() { return wrap(uiNewEditableCombobox()); }
 
   EditableCombobox append(const char *text) {
-    uiEditableComboboxAppend(w, text);
+    uiEditableComboboxAppend(w_, text);
     return *this;
   }
 
-  Text text() const { return detail::adopt_text(uiEditableComboboxText(w)); }
+  Text text() const { return detail::adopt_text(uiEditableComboboxText(w_)); }
 
   EditableCombobox set_text(const char *text) {
-    uiEditableComboboxSetText(w, text);
+    uiEditableComboboxSetText(w_, text);
     return *this;
   }
 
   EditableCombobox on_changed(void (*fn)(uiEditableCombobox *sender, void *data), void *data) {
-    uiEditableComboboxOnChanged(w, fn, data);
+    uiEditableComboboxOnChanged(w_, fn, data);
     return *this;
   }
 };
 
 struct RadioButtons : Widget<RadioButtons, uiRadioButtons> {
-  static RadioButtons make() { return from(uiNewRadioButtons()); }
+  static RadioButtons make() { return wrap(uiNewRadioButtons()); }
 
   RadioButtons append(const char *text) {
-    uiRadioButtonsAppend(w, text);
+    uiRadioButtonsAppend(w_, text);
     return *this;
   }
 
-  int selected() const { return uiRadioButtonsSelected(w); }
+  int selected() const { return uiRadioButtonsSelected(w_); }
 
   RadioButtons set_selected(int index) {
-    uiRadioButtonsSetSelected(w, index);
+    uiRadioButtonsSetSelected(w_, index);
     return *this;
   }
 
   RadioButtons on_selected(void (*fn)(uiRadioButtons *sender, void *data), void *data) {
-    uiRadioButtonsOnSelected(w, fn, data);
+    uiRadioButtonsOnSelected(w_, fn, data);
     return *this;
   }
 };
 
 struct DateTimePicker : Widget<DateTimePicker, uiDateTimePicker> {
-  static DateTimePicker make() { return from(uiNewDateTimePicker()); }
+  static DateTimePicker make() { return wrap(uiNewDateTimePicker()); }
 
-  static DateTimePicker make_date() { return from(uiNewDatePicker()); }
+  static DateTimePicker make_date() { return wrap(uiNewDatePicker()); }
 
-  static DateTimePicker make_time() { return from(uiNewTimePicker()); }
+  static DateTimePicker make_time() { return wrap(uiNewTimePicker()); }
 
-  void time(struct tm *out) const { uiDateTimePickerTime(w, out); }
+  void time(struct tm *out) const { uiDateTimePickerTime(w_, out); }
 
   DateTimePicker set_time(const struct tm *time) {
-    uiDateTimePickerSetTime(w, time);
+    uiDateTimePickerSetTime(w_, time);
     return *this;
   }
 
   DateTimePicker on_changed(void (*fn)(uiDateTimePicker *sender, void *data), void *data) {
-    uiDateTimePickerOnChanged(w, fn, data);
+    uiDateTimePickerOnChanged(w_, fn, data);
     return *this;
   }
 };
 
 struct MultilineEntry : Widget<MultilineEntry, uiMultilineEntry> {
-  static MultilineEntry make() { return from(uiNewMultilineEntry()); }
+  static MultilineEntry make() { return wrap(uiNewMultilineEntry()); }
 
-  static MultilineEntry make_non_wrapping() { return from(uiNewNonWrappingMultilineEntry()); }
+  static MultilineEntry make_non_wrapping() { return wrap(uiNewNonWrappingMultilineEntry()); }
 
-  Text text() const { return detail::adopt_text(uiMultilineEntryText(w)); }
+  Text text() const { return detail::adopt_text(uiMultilineEntryText(w_)); }
 
   MultilineEntry set_text(const char *text) {
-    uiMultilineEntrySetText(w, text);
+    uiMultilineEntrySetText(w_, text);
     return *this;
   }
 
   MultilineEntry append(const char *text) {
-    uiMultilineEntryAppend(w, text);
+    uiMultilineEntryAppend(w_, text);
     return *this;
   }
 
-  bool readonly() const { return uiMultilineEntryReadOnly(w) != 0; }
+  bool readonly() const { return uiMultilineEntryReadOnly(w_) != 0; }
 
   MultilineEntry readonly(bool value) {
-    uiMultilineEntrySetReadOnly(w, value ? 1 : 0);
+    uiMultilineEntrySetReadOnly(w_, value ? 1 : 0);
     return *this;
   }
 
   MultilineEntry on_changed(void (*fn)(uiMultilineEntry *sender, void *data), void *data) {
-    uiMultilineEntryOnChanged(w, fn, data);
+    uiMultilineEntryOnChanged(w_, fn, data);
     return *this;
   }
 };
 
 struct ColorButton : Widget<ColorButton, uiColorButton> {
-  static ColorButton make() { return from(uiNewColorButton()); }
+  static ColorButton make() { return wrap(uiNewColorButton()); }
 
   void color(double *r, double *g, double *b, double *a) const {
-    uiColorButtonColor(w, r, g, b, a);
+    uiColorButtonColor(w_, r, g, b, a);
   }
 
   ColorButton set_color(double r, double g, double b, double a) {
-    uiColorButtonSetColor(w, r, g, b, a);
+    uiColorButtonSetColor(w_, r, g, b, a);
     return *this;
   }
 
   ColorButton on_changed(void (*fn)(uiColorButton *sender, void *data), void *data) {
-    uiColorButtonOnChanged(w, fn, data);
+    uiColorButtonOnChanged(w_, fn, data);
     return *this;
   }
 };
@@ -793,17 +791,17 @@ struct FontDescriptor {
 };
 
 struct FontButton : Widget<FontButton, uiFontButton> {
-  static FontButton make() { return from(uiNewFontButton()); }
+  static FontButton make() { return wrap(uiNewFontButton()); }
 
   FontDescriptor font() const {
     FontDescriptor result;
-    uiFontButtonFont(w, &result.desc);
+    uiFontButtonFont(w_, &result.desc);
     result.from_button_ = true;
     return result;
   }
 
   FontButton on_changed(void (*fn)(uiFontButton *sender, void *data), void *data) {
-    uiFontButtonOnChanged(w, fn, data);
+    uiFontButtonOnChanged(w_, fn, data);
     return *this;
   }
 };
@@ -1341,7 +1339,7 @@ struct Table : Widget<Table, uiTable> {
     uiTableParams p{};
     p.Model = params.model->raw();
     p.RowBackgroundColorModelColumn = params.row_background_color_model_column;
-    return from(uiNewTable(&p));
+    return wrap(uiNewTable(&p));
   }
 
   Table append_text_column(const char *name, int text_model_column, int text_editable_model_column,
@@ -1352,12 +1350,12 @@ struct Table : Widget<Table, uiTable> {
       tp.ColorModelColumn = text_params->color_model_column;
       tp_ptr = &tp;
     }
-    uiTableAppendTextColumn(w, name, text_model_column, text_editable_model_column, tp_ptr);
+    uiTableAppendTextColumn(w_, name, text_model_column, text_editable_model_column, tp_ptr);
     return *this;
   }
 
   Table append_image_column(const char *name, int image_model_column) {
-    uiTableAppendImageColumn(w, name, image_model_column);
+    uiTableAppendImageColumn(w_, name, image_model_column);
     return *this;
   }
 
@@ -1370,14 +1368,14 @@ struct Table : Widget<Table, uiTable> {
       tp.ColorModelColumn = text_params->color_model_column;
       tp_ptr = &tp;
     }
-    uiTableAppendImageTextColumn(w, name, image_model_column, text_model_column,
+    uiTableAppendImageTextColumn(w_, name, image_model_column, text_model_column,
                                  text_editable_model_column, tp_ptr);
     return *this;
   }
 
   Table append_checkbox_column(const char *name, int checkbox_model_column,
                                int checkbox_editable_model_column) {
-    uiTableAppendCheckboxColumn(w, name, checkbox_model_column, checkbox_editable_model_column);
+    uiTableAppendCheckboxColumn(w_, name, checkbox_model_column, checkbox_editable_model_column);
     return *this;
   }
 
@@ -1391,161 +1389,161 @@ struct Table : Widget<Table, uiTable> {
       tp.ColorModelColumn = text_params->color_model_column;
       tp_ptr = &tp;
     }
-    uiTableAppendCheckboxTextColumn(w, name, checkbox_model_column, checkbox_editable_model_column,
+    uiTableAppendCheckboxTextColumn(w_, name, checkbox_model_column, checkbox_editable_model_column,
                                     text_model_column, text_editable_model_column, tp_ptr);
     return *this;
   }
 
   Table append_progress_bar_column(const char *name, int progress_model_column) {
-    uiTableAppendProgressBarColumn(w, name, progress_model_column);
+    uiTableAppendProgressBarColumn(w_, name, progress_model_column);
     return *this;
   }
 
   Table append_button_column(const char *name, int button_model_column,
                              int button_clickable_model_column) {
-    uiTableAppendButtonColumn(w, name, button_model_column, button_clickable_model_column);
+    uiTableAppendButtonColumn(w_, name, button_model_column, button_clickable_model_column);
     return *this;
   }
 
-  bool header_visible() const { return uiTableHeaderVisible(w) != 0; }
+  bool header_visible() const { return uiTableHeaderVisible(w_) != 0; }
 
   Table header_visible(bool value) {
-    uiTableHeaderSetVisible(w, value ? 1 : 0);
+    uiTableHeaderSetVisible(w_, value ? 1 : 0);
     return *this;
   }
 
   Table header_sort_indicator(int column, uiSortIndicator indicator) {
-    uiTableHeaderSetSortIndicator(w, column, indicator);
+    uiTableHeaderSetSortIndicator(w_, column, indicator);
     return *this;
   }
 
   uiSortIndicator header_sort_indicator(int column) const {
-    return uiTableHeaderSortIndicator(w, column);
+    return uiTableHeaderSortIndicator(w_, column);
   }
 
-  int column_width(int column) const { return uiTableColumnWidth(w, column); }
+  int column_width(int column) const { return uiTableColumnWidth(w_, column); }
 
   Table set_column_width(int column, int width) {
-    uiTableColumnSetWidth(w, column, width);
+    uiTableColumnSetWidth(w_, column, width);
     return *this;
   }
 
-  uiTableSelectionMode selection_mode() const { return uiTableGetSelectionMode(w); }
+  uiTableSelectionMode selection_mode() const { return uiTableGetSelectionMode(w_); }
 
   Table set_selection_mode(uiTableSelectionMode mode) {
-    uiTableSetSelectionMode(w, mode);
+    uiTableSetSelectionMode(w_, mode);
     return *this;
   }
 
-  TableSelection selection() const { return TableSelection(uiTableGetSelection(w)); }
+  TableSelection selection() const { return TableSelection(uiTableGetSelection(w_)); }
 
   Table set_selection(const std::vector<int> &rows) {
     uiTableSelection sel{};
     sel.NumRows = static_cast<int>(rows.size());
     sel.Rows = const_cast<int *>(rows.data());
-    uiTableSetSelection(w, &sel);
+    uiTableSetSelection(w_, &sel);
     return *this;
   }
 
   Table on_row_clicked(void (*fn)(uiTable *sender, int row, void *data), void *data) {
-    uiTableOnRowClicked(w, fn, data);
+    uiTableOnRowClicked(w_, fn, data);
     return *this;
   }
 
   Table on_row_double_clicked(void (*fn)(uiTable *sender, int row, void *data), void *data) {
-    uiTableOnRowDoubleClicked(w, fn, data);
+    uiTableOnRowDoubleClicked(w_, fn, data);
     return *this;
   }
 
   Table on_selection_changed(void (*fn)(uiTable *sender, void *data), void *data) {
-    uiTableOnSelectionChanged(w, fn, data);
+    uiTableOnSelectionChanged(w_, fn, data);
     return *this;
   }
 
   Table header_on_clicked(void (*fn)(uiTable *sender, int column, void *data), void *data) {
-    uiTableHeaderOnClicked(w, fn, data);
+    uiTableHeaderOnClicked(w_, fn, data);
     return *this;
   }
 };
 
 struct Separator : Widget<Separator, uiSeparator> {
-  static Separator make_horizontal() { return from(uiNewHorizontalSeparator()); }
+  static Separator make_horizontal() { return wrap(uiNewHorizontalSeparator()); }
 
-  static Separator make_vertical() { return from(uiNewVerticalSeparator()); }
+  static Separator make_vertical() { return wrap(uiNewVerticalSeparator()); }
 };
 
 struct Form : Widget<Form, uiForm> {
-  static Form make() { return from(uiNewForm()); }
+  static Form make() { return wrap(uiNewForm()); }
 
-  bool padded() const { return uiFormPadded(w) != 0; }
+  bool padded() const { return uiFormPadded(w_) != 0; }
 
   Form padded(bool value) {
-    uiFormSetPadded(w, value ? 1 : 0);
+    uiFormSetPadded(w_, value ? 1 : 0);
     return *this;
   }
 
-  int num_children() const { return uiFormNumChildren(w); }
+  int num_children() const { return uiFormNumChildren(w_); }
 
   Form delete_at(int index) {
-    uiFormDelete(w, index);
+    uiFormDelete(w_, index);
     return *this;
   }
 
   template <typename W>
   Form append(const char *label, W &child, bool stretchy = false) {
-    uiFormAppend(w, label, child.ctrl(), stretchy ? 1 : 0);
+    uiFormAppend(w_, label, child.ctrl(), stretchy ? 1 : 0);
     return *this;
   }
 
   template <typename W>
   Form append(const char *label, W &&child, bool stretchy = false) {
-    uiFormAppend(w, label, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
+    uiFormAppend(w_, label, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
     return *this;
   }
 
   template <typename W>
   Form append_stretchy(const char *label, W &child) {
-    uiFormAppend(w, label, child.ctrl(), 1);
+    uiFormAppend(w_, label, child.ctrl(), 1);
     return *this;
   }
 
   template <typename W>
   Form append_stretchy(const char *label, W &&child) {
-    uiFormAppend(w, label, std::forward<W>(child).ctrl(), 1);
+    uiFormAppend(w_, label, std::forward<W>(child).ctrl(), 1);
     return *this;
   }
 };
 
 struct Grid : Widget<Grid, uiGrid> {
-  static Grid make() { return from(uiNewGrid()); }
+  static Grid make() { return wrap(uiNewGrid()); }
 
-  bool padded() const { return uiGridPadded(w) != 0; }
+  bool padded() const { return uiGridPadded(w_) != 0; }
 
   Grid padded(bool value) {
-    uiGridSetPadded(w, value ? 1 : 0);
+    uiGridSetPadded(w_, value ? 1 : 0);
     return *this;
   }
 
   template <typename W>
   Grid append(W &child, int left, int top, int xspan, int yspan, bool hexpand, uiAlign halign,
               bool vexpand, uiAlign valign) {
-    uiGridAppend(w, child.ctrl(), left, top, xspan, yspan, hexpand ? 1 : 0, halign, vexpand ? 1 : 0,
-                 valign);
+    uiGridAppend(w_, child.ctrl(), left, top, xspan, yspan, hexpand ? 1 : 0, halign,
+                 vexpand ? 1 : 0, valign);
     return *this;
   }
 
   template <typename W>
   Grid append(W &&child, int left, int top, int xspan, int yspan, bool hexpand, uiAlign halign,
               bool vexpand, uiAlign valign) {
-    uiGridAppend(w, std::forward<W>(child).ctrl(), left, top, xspan, yspan, hexpand ? 1 : 0, halign,
-                 vexpand ? 1 : 0, valign);
+    uiGridAppend(w_, std::forward<W>(child).ctrl(), left, top, xspan, yspan, hexpand ? 1 : 0,
+                 halign, vexpand ? 1 : 0, valign);
     return *this;
   }
 
   template <typename W>
   Grid insert_at(W &child, uiControl *existing, uiAt at, int xspan, int yspan, bool hexpand,
                  uiAlign halign, bool vexpand, uiAlign valign) {
-    uiGridInsertAt(w, child.ctrl(), existing, at, xspan, yspan, hexpand ? 1 : 0, halign,
+    uiGridInsertAt(w_, child.ctrl(), existing, at, xspan, yspan, hexpand ? 1 : 0, halign,
                    vexpand ? 1 : 0, valign);
     return *this;
   }
@@ -1553,7 +1551,7 @@ struct Grid : Widget<Grid, uiGrid> {
   template <typename W>
   Grid insert_at(W &&child, uiControl *existing, uiAt at, int xspan, int yspan, bool hexpand,
                  uiAlign halign, bool vexpand, uiAlign valign) {
-    uiGridInsertAt(w, std::forward<W>(child).ctrl(), existing, at, xspan, yspan, hexpand ? 1 : 0,
+    uiGridInsertAt(w_, std::forward<W>(child).ctrl(), existing, at, xspan, yspan, hexpand ? 1 : 0,
                    halign, vexpand ? 1 : 0, valign);
     return *this;
   }
@@ -1564,6 +1562,45 @@ struct Grid : Widget<Grid, uiGrid> {
     return insert_at(std::forward<Child>(child), existing.ctrl(), at, xspan, yspan, hexpand, halign,
                      vexpand, valign);
   }
+};
+
+struct AreaHandler : uiAreaHandler {
+  uiAreaHandler *raw() { return this; }
+
+  const uiAreaHandler *raw() const { return this; }
+};
+
+struct Area : Widget<Area, uiArea> {
+  static Area make(AreaHandler &handler) { return wrap(uiNewArea(handler.raw())); }
+
+  static Area make_scrolling(AreaHandler &handler, int width, int height) {
+    return wrap(uiNewScrollingArea(handler.raw(), width, height));
+  }
+
+  Area copy() const {
+    Area result;
+    result.w_ = w_;
+    return result;
+  }
+
+  Area set_size(int width, int height) {
+    uiAreaSetSize(w_, width, height);
+    return copy();
+  }
+
+  Area queue_redraw_all() {
+    uiAreaQueueRedrawAll(w_);
+    return copy();
+  }
+
+  Area scroll_to(double x, double y, double width, double height) {
+    uiAreaScrollTo(w_, x, y, width, height);
+    return copy();
+  }
+
+  void begin_user_window_move() { uiAreaBeginUserWindowMove(w_); }
+
+  void begin_user_window_resize(uiWindowResizeEdge edge) { uiAreaBeginUserWindowResize(w_, edge); }
 };
 
 inline Text open_file(Window &parent) { return detail::adopt_text(uiOpenFile(parent.raw())); }

@@ -12,7 +12,8 @@ constexpr int kPopupCornerRadius = 12;
 constexpr int kPopupWidth = 200;
 constexpr int kPopupHeight = 40;
 
-ui::DrawPath make_rounded_rectangle(double x, double y, double width, double height, double radius) {
+ui::DrawPath make_rounded_rectangle(double x, double y, double width, double height,
+                                    double radius) {
   double r = radius;
   if (r > width / 2.0) {
     r = width / 2.0;
@@ -56,7 +57,8 @@ struct PopupWindow {
     handler_.Draw = [](uiAreaHandler *handler, uiArea *area, uiAreaDrawParams *params) {
       printf("Draw\n");
       ui::DrawContext::wrap(params->Context)
-          .fill(make_rounded_rectangle(0, 0, params->AreaWidth, params->AreaHeight, kPopupCornerRadius),
+          .fill(make_rounded_rectangle(0, 0, params->AreaWidth, params->AreaHeight,
+                                       kPopupCornerRadius),
                 ui::DrawBrush::solid(1.0, 0.0, 0.0, 1.0));
     };
     handler_.MouseEvent = [](uiAreaHandler *handler, uiArea *area, uiAreaMouseEvent *event) {
@@ -73,40 +75,40 @@ struct PopupWindow {
   }
 
   void close() {
-    if (window_ == nullptr) {
+    if (window_.raw() == nullptr) {
       return;
     }
-    uiWindow *popup = window_;
-    window_ = nullptr;
-    ui::Window::wrap(popup).destroy();
+    area_ = {};
+    window_.destroy();
   }
 
   void show() {
-    area_ = uiNewArea(&handler_);
-    ui::Window popup = ui::Window::make("pop up", kPopupWidth, kPopupHeight, false);
-    window_ = popup.raw();
-    popup.borderless(true).margined(false).resizable(false);
-    uiWindowSetChild(popup.raw(), uiControl(area_));
-    popup.on_focus_changed(on_focus_changed, this).show();
+    area_ = ui::Area::make(handler_);
+    window_ = ui::Window::make("pop up", kPopupWidth, kPopupHeight, false)
+                  .borderless(true)
+                  .margined(false)
+                  .resizable(false)
+                  .set_child(area_);
+    window_.on_focus_changed(on_focus_changed, this).show();
 #ifdef _WIN32
-    apply_rounded_window_shape(window_, kPopupWidth, kPopupHeight, kPopupCornerRadius);
+    apply_rounded_window_shape(window_.raw(), kPopupWidth, kPopupHeight, kPopupCornerRadius);
 #endif
   }
 
   void toggle() {
-    if (window_ != nullptr) {
+    if (window_.raw() != nullptr) {
       close();
       return;
     }
     show();
   }
 
-  bool is_open() const { return window_ != nullptr; }
+  bool is_open() const { return window_.raw() != nullptr; }
 
  private:
-  uiWindow *window_ = nullptr;
-  uiArea *area_ = nullptr;
-  uiAreaHandler handler_{};
+  ui::Window window_{};
+  ui::Area area_{};
+  ui::AreaHandler handler_{};
 
   static void on_focus_changed(uiWindow *sender, void *data) {
     if (uiWindowFocused(sender) != 0) {
@@ -115,7 +117,7 @@ struct PopupWindow {
     ui::Application::queue_main(
         [](void *queued_data) {
           auto *self = static_cast<PopupWindow *>(queued_data);
-          if (self->window_ != nullptr) {
+          if (self->window_.raw() != nullptr) {
             self->close();
           }
         },

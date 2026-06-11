@@ -165,9 +165,9 @@ static int on_closing(uiWindow *, void *) {
 static void header_visible_toggled(uiCheckbox *sender, void *data) {
   auto *ctx = static_cast<Context *>(data);
   ui::Checkbox checkbox;
-  checkbox.w = sender;
+  checkbox = ui::Checkbox::wrap(sender);
   ui::Table table;
-  table.w = ctx->table;
+  table = ui::Table::wrap(ctx->table);
   table.header_visible(checkbox.checked());
   checkbox.set_checked(table.header_visible());
 }
@@ -175,9 +175,9 @@ static void header_visible_toggled(uiCheckbox *sender, void *data) {
 static void selection_mode_on_selected(uiCombobox *sender, void *data) {
   auto *ctx = static_cast<Context *>(data);
   ui::Combobox combobox;
-  combobox.w = sender;
+  combobox = ui::Combobox::wrap(sender);
   ui::Table table;
-  table.w = ctx->table;
+  table = ui::Table::wrap(ctx->table);
   int index = combobox.selected();
   if (index < 0) {
     return;
@@ -189,18 +189,18 @@ static void selection_mode_on_selected(uiCombobox *sender, void *data) {
 static void changed_column_id(uiSpinbox *sender, void *data) {
   auto *ctx = static_cast<Context *>(data);
   ui::Spinbox spinbox;
-  spinbox.w = sender;
+  spinbox = ui::Spinbox::wrap(sender);
   ui::Table table;
-  table.w = ctx->table;
+  table = ui::Table::wrap(ctx->table);
   ctx->column_width.set_value(table.column_width(spinbox.value()));
 }
 
 static void changed_column_width(uiSpinbox *sender, void *data) {
   auto *ctx = static_cast<Context *>(data);
   ui::Spinbox spinbox;
-  spinbox.w = sender;
+  spinbox = ui::Spinbox::wrap(sender);
   ui::Table table;
-  table.w = ctx->table;
+  table = ui::Table::wrap(ctx->table);
   table.set_column_width(ctx->column_id.value(), spinbox.value());
 }
 
@@ -225,7 +225,7 @@ static void on_row_double_clicked(uiTable *table, int row, void *data) {
 static void header_on_clicked(uiTable *sender, int col, void *) {
   static int prev = 0;
   ui::Table table;
-  table.w = sender;
+  table = ui::Table::wrap(sender);
 
   if (prev != col) {
     table.header_sort_indicator(prev, uiSortIndicatorNone);
@@ -242,7 +242,7 @@ static void header_on_clicked(uiTable *sender, int col, void *) {
 static void on_selection_changed(uiTable *sender, void *data) {
   auto *ctx = static_cast<Context *>(data);
   ui::Table table;
-  table.w = sender;
+  table = ui::Table::wrap(sender);
   ui::TableSelection selection = table.selection();
 
   char str[128];
@@ -263,7 +263,7 @@ static void on_selection_changed(uiTable *sender, void *data) {
 static void select_checked(uiButton *, void *data) {
   auto *ctx = static_cast<Context *>(data);
   ui::Table table;
-  table.w = ctx->table;
+  table = ui::Table::wrap(ctx->table);
   std::vector<int> rows;
   for (int i = 0; i < 15; ++i) {
     if (ctx->table_model.handler_as<Page16Model>()->check_states()[i]) {
