@@ -1,6 +1,6 @@
 #include <cstdio>
 
-#include <ui.hpp>
+#include <ui/ui.hpp>
 
 #ifdef _WIN32
 #include <windows.h>

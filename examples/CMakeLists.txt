@@ -1,0 +1,32 @@
+function(libui_hpp_add_example target_name)
+    set(options CONSOLE)
+    set(oneValueArgs)
+    set(multiValueArgs SOURCES)
+    cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    if(WIN32)
+        add_executable(${target_name} WIN32 ${ARG_SOURCES})
+    else()
+        add_executable(${target_name} ${ARG_SOURCES})
+    endif()
+
+    target_link_libraries(${target_name} PRIVATE ui)
+    add_dependencies(${target_name} libui_ng_build)
+
+    if(WIN32 AND MSVC)
+        target_sources(${target_name} PRIVATE "${CMAKE_SOURCE_DIR}/windows/resources.rc")
+        set(_link_opts /ENTRY:mainCRTStartup /MANIFEST:NO)
+        if(ARG_CONSOLE)
+            list(APPEND _link_opts /SUBSYSTEM:CONSOLE)
+        endif()
+        target_link_options(${target_name} PRIVATE ${_link_opts})
+    endif()
+
+    if(APPLE)
+        target_compile_options(${target_name} PRIVATE -stdlib=libc++)
+        target_link_options(${target_name} PRIVATE -stdlib=libc++)
+    endif()
+endfunction()
+
+libui_hpp_add_example(widget-gallery CONSOLE SOURCES widget_gallery.cpp)
+libui_hpp_add_example(table-demo SOURCES table_demo.cpp)

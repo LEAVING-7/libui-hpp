@@ -6,10 +6,7 @@ FetchContent_Declare(
     GIT_TAG        master
 )
 
-FetchContent_GetProperties(libui_ng)
-if(NOT libui_ng_POPULATED)
-    FetchContent_Populate(libui_ng)
-endif()
+FetchContent_MakeAvailable(libui_ng)
 
 set(LIBUI_NG_SOURCE_DIR "${libui_ng_SOURCE_DIR}")
 
@@ -18,17 +15,7 @@ set(LIBUI_COMPILER_FINGERPRINT
 )
 string(SHA256 LIBUI_COMPILER_HASH "${LIBUI_COMPILER_FINGERPRINT}")
 string(SUBSTRING "${LIBUI_COMPILER_HASH}" 0 12 LIBUI_COMPILER_HASH_SHORT)
-set(LIBUI_NG_BUILD_DIR "${CMAKE_BINARY_DIR}/libui-ng-build-${LIBUI_COMPILER_HASH_SHORT}")
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(LIBUI_MESON_BUILDTYPE "debug")
-elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
-    set(LIBUI_MESON_BUILDTYPE "minsize")
-elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    set(LIBUI_MESON_BUILDTYPE "debugoptimized")
-else()
-    set(LIBUI_MESON_BUILDTYPE "release")
-endif()
+set(LIBUI_NG_BUILD_ROOT "${CMAKE_BINARY_DIR}/libui-ng-build-${LIBUI_COMPILER_HASH_SHORT}")
 
 # Meson native file: force the same toolchain CMake selected.
 string(REPLACE "\\" "/" LIBUI_MESON_C_COMPILER "${CMAKE_C_COMPILER}")
@@ -61,38 +48,48 @@ endif()
 
 file(WRITE "${LIBUI_MESON_NATIVE_FILE}" "${LIBUI_MESON_NATIVE_LINES}")
 
-set(LIBUI_MESON_SETUP
-    meson setup "${LIBUI_NG_BUILD_DIR}" "${LIBUI_NG_SOURCE_DIR}"
-    --native-file=${LIBUI_MESON_NATIVE_FILE}
-    --default-library=static
-    -Dtests=false
-    -Dexamples=false
-    --buildtype=${LIBUI_MESON_BUILDTYPE}
-)
-
-if(MSVC)
-    list(APPEND LIBUI_MESON_SETUP --vsenv)
-endif()
-
-# Meson names the static archive libui.a for all toolchains (including MSVC).
-set(LIBUI_NG_LIB_FILE "${LIBUI_NG_BUILD_DIR}/meson-out/libui.a")
+set(LIBUI_NG_LIB_FILE "${LIBUI_NG_BUILD_ROOT}/$<LOWER_CASE:$<CONFIG>>/meson-out/libui.a")
 
 add_custom_command(
     OUTPUT "${LIBUI_NG_LIB_FILE}"
-    COMMAND ${LIBUI_MESON_SETUP}
-    COMMAND meson compile -C "${LIBUI_NG_BUILD_DIR}"
+    COMMAND ${CMAKE_COMMAND}
+        -DCONFIG=$<CONFIG>
+        -DBUILD_ROOT=${LIBUI_NG_BUILD_ROOT}
+        -DLIBUI_NG_SOURCE_DIR=${LIBUI_NG_SOURCE_DIR}
+        -DLIBUI_MESON_NATIVE_FILE=${LIBUI_MESON_NATIVE_FILE}
+        -DMSVC=$<BOOL:${MSVC}>
+        -DCMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}
+        -P ${CMAKE_CURRENT_LIST_DIR}/BuildLibuiNgMeson.cmake
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
     DEPENDS "${LIBUI_MESON_NATIVE_FILE}"
-    COMMENT "Building libui-ng (static) with Meson using ${CMAKE_CXX_COMPILER}"
+    COMMENT "Building libui-ng ($<CONFIG>) with Meson using ${CMAKE_CXX_COMPILER}"
     VERBATIM
+    COMMAND_EXPAND_LISTS
 )
 
 add_custom_target(libui_ng_build DEPENDS "${LIBUI_NG_LIB_FILE}")
 
 add_library(libui_ng STATIC IMPORTED GLOBAL)
 add_dependencies(libui_ng libui_ng_build)
+
+if(CMAKE_CONFIGURATION_TYPES)
+    foreach(CONFIG ${CMAKE_CONFIGURATION_TYPES})
+        string(TOUPPER "${CONFIG}" LIBUI_CONFIG_UPPER)
+        string(TOLOWER "${CONFIG}" LIBUI_CONFIG_LOWER)
+        set_property(TARGET libui_ng APPEND PROPERTY IMPORTED_CONFIGURATIONS "${CONFIG}")
+        set_target_properties(libui_ng PROPERTIES
+            "IMPORTED_LOCATION_${LIBUI_CONFIG_UPPER}"
+                "${LIBUI_NG_BUILD_ROOT}/${LIBUI_CONFIG_LOWER}/meson-out/libui.a"
+        )
+    endforeach()
+else()
+    string(TOLOWER "${CMAKE_BUILD_TYPE}" LIBUI_CONFIG_LOWER)
+    set_target_properties(libui_ng PROPERTIES
+        IMPORTED_LOCATION "${LIBUI_NG_BUILD_ROOT}/${LIBUI_CONFIG_LOWER}/meson-out/libui.a"
+    )
+endif()
+
 set_target_properties(libui_ng PROPERTIES
-    IMPORTED_LOCATION "${LIBUI_NG_LIB_FILE}"
     INTERFACE_INCLUDE_DIRECTORIES "${LIBUI_NG_SOURCE_DIR}"
     INTERFACE_COMPILE_DEFINITIONS "_UI_STATIC"
 )

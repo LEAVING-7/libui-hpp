@@ -2,7 +2,7 @@
 #include <cstring>
 #include <vector>
 
-#include <ui.hpp>
+#include <ui/ui.hpp>
 
 namespace {
 
