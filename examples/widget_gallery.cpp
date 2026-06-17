@@ -48,6 +48,19 @@ void apply_rounded_window_shape(uiWindow *window, int width, int height, int cor
     DeleteObject(region);
   }
 }
+
+void set_wnd_icon(const ui::Window &window, const char *icon_path) {
+  if (icon_path == nullptr) {
+    return;
+  }
+  HICON icon = LoadIcon(GetModuleHandle(nullptr), icon_path);
+  if (icon == nullptr) {
+    return;
+  }
+  SendMessage(window.handle<HWND>(), WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon));
+  SendMessage(window.handle<HWND>(), WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon));
+}
+
 #endif
 
 }  // namespace
@@ -312,18 +325,17 @@ int main() {
   }
 
   ui::Menu file_menu = ui::Menu::make("File");
-  file_menu.append_item("Open")
-      .on_clicked(
-          [](uiMenuItem *, uiWindow *window, void *) {
-            ui::Window parent = ui::Window::wrap(window);
-            ui::Text filename = ui::open_file(parent);
-            if (filename.empty()) {
-              ui::msg_box_error(parent, "No file selected", "Don't be alarmed!");
-              return;
-            }
-            ui::msg_box(parent, "File selected", filename.c_str());
-          },
-          nullptr);
+  file_menu.append_item("Open").on_clicked(
+      [](uiMenuItem *, uiWindow *window, void *) {
+        ui::Window parent = ui::Window::wrap(window);
+        ui::Text filename = ui::open_file(parent);
+        if (filename.empty()) {
+          ui::msg_box_error(parent, "No file selected", "Don't be alarmed!");
+          return;
+        }
+        ui::msg_box(parent, "File selected", filename.c_str());
+      },
+      nullptr);
   file_menu.append_item("Open Folder")
       .on_clicked(
           [](uiMenuItem *, uiWindow *window, void *) {
@@ -336,18 +348,17 @@ int main() {
             ui::msg_box(parent, "Folder selected", filename.c_str());
           },
           nullptr);
-  file_menu.append_item("Save")
-      .on_clicked(
-          [](uiMenuItem *, uiWindow *window, void *) {
-            ui::Window parent = ui::Window::wrap(window);
-            ui::Text filename = ui::save_file(parent);
-            if (filename.empty()) {
-              ui::msg_box_error(parent, "No file selected", "Don't be alarmed!");
-              return;
-            }
-            ui::msg_box(parent, "File selected (don't worry, it's still there)", filename.c_str());
-          },
-          nullptr);
+  file_menu.append_item("Save").on_clicked(
+      [](uiMenuItem *, uiWindow *window, void *) {
+        ui::Window parent = ui::Window::wrap(window);
+        ui::Text filename = ui::save_file(parent);
+        if (filename.empty()) {
+          ui::msg_box_error(parent, "No file selected", "Don't be alarmed!");
+          return;
+        }
+        ui::msg_box(parent, "File selected (don't worry, it's still there)", filename.c_str());
+      },
+      nullptr);
   file_menu.append_quit_item();
 
   ui::Menu edit_menu = ui::Menu::make("Edit");

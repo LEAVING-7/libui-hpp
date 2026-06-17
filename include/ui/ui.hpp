@@ -1,10 +1,9 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstring>
-#include <ctime>
 #include <initializer_list>
-#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -72,6 +71,35 @@ struct Widget {
 
   R *raw() const { return w_; }
 
+  template <typename T = uintptr_t>
+  T handle() const {
+    return reinterpret_cast<T>(uiControlHandle(ctrl()));
+  }
+
+  uiControl *parent_raw() const { return uiControlParent(ctrl()); }
+
+  D set_parent_raw(uiControl *parent) {
+    assert((uiControlVerifySetParent(ctrl(), parent), true));
+    uiControlSetParent(ctrl(), parent);
+    return static_cast<D &>(*this);
+  }
+
+  template <typename W>
+  D set_parent(W &parent) {
+    assert((uiControlVerifySetParent(ctrl(), parent.ctrl()), true));
+    uiControlSetParent(ctrl(), parent.ctrl());
+    return static_cast<D &>(*this);
+  }
+
+  template <typename W>
+  D set_parent(W &&parent) {
+    assert((uiControlVerifySetParent(ctrl(), std::forward<W>(parent).ctrl()), true));
+    uiControlSetParent(ctrl(), std::forward<W>(parent).ctrl());
+    return static_cast<D &>(*this);
+  }
+
+  bool toplevel() const { return uiControlToplevel(ctrl()) != 0; }
+
   void show() { uiControlShow(ctrl()); }
 
   void hide() { uiControlHide(ctrl()); }
@@ -83,6 +111,8 @@ struct Widget {
   void disable() { uiControlDisable(ctrl()); }
 
   bool enabled() const { return uiControlEnabled(ctrl()) != 0; }
+
+  bool enabled_to_user() const { return uiControlEnabledToUser(ctrl()) != 0; }
 
   void destroy() {
     if (w_ != nullptr) {
