@@ -19,116 +19,116 @@ ui::Image make_solid_image(int size, uint8_t r, uint8_t g, uint8_t b) {
   return img;
 }
 
-class Page16Model : public ui::TableModelHandler {
- public:
-  Page16Model() {
+struct Page16Handler : ui::TableModelHandler {
+  Page16Handler() {
     img_[0] = make_solid_image(16, 255, 0, 0);
     img_[1] = make_solid_image(16, 0, 128, 255);
     std::strcpy(row9text_, "Part");
     std::memset(check_states_, 0, sizeof(check_states_));
-  }
 
-  int num_columns() override { return 9; }
+    NumColumns = [](uiTableModelHandler *, uiTableModel *) { return 9; };
 
-  uiTableValueType column_type(int column) override {
-    if (column == 3 || column == 4) {
-      return uiTableValueTypeColor;
-    }
-    if (column == 5) {
-      return uiTableValueTypeImage;
-    }
-    if (column == 7 || column == 8) {
-      return uiTableValueTypeInt;
-    }
-    return uiTableValueTypeString;
-  }
+    ColumnType = [](uiTableModelHandler *, uiTableModel *, int column) -> uiTableValueType {
+      if (column == 3 || column == 4) {
+        return uiTableValueTypeColor;
+      }
+      if (column == 5) {
+        return uiTableValueTypeImage;
+      }
+      if (column == 7 || column == 8) {
+        return uiTableValueTypeInt;
+      }
+      return uiTableValueTypeString;
+    };
 
-  int num_rows() override { return 15; }
+    NumRows = [](uiTableModelHandler *, uiTableModel *) { return 15; };
 
-  ui::TableValue cell_value(int row, int column) override {
-    char buf[256];
+    CellValue = [](uiTableModelHandler *mh, uiTableModel *, int row, int column) -> uiTableValue * {
+      auto *self = static_cast<Page16Handler *>(mh);
+      char buf[256];
 
-    if (column == 3) {
-      if (row == yellow_row_) {
-        return ui::TableValue::color(1, 1, 0, 1);
-      }
-      if (row == 3) {
-        return ui::TableValue::color(1, 0, 0, 1);
-      }
-      if (row == 11) {
-        return ui::TableValue::color(0, 0.5, 1, 0.5);
-      }
-      return {};
-    }
-    if (column == 4) {
-      if ((row % 2) == 1) {
-        return ui::TableValue::color(0.5, 0, 0.75, 1);
-      }
-      return {};
-    }
-    if (column == 5) {
-      return ui::TableValue::image(row < 8 ? img_[0] : img_[1]);
-    }
-    if (column == 7) {
-      return ui::TableValue::integer(check_states_[row]);
-    }
-    if (column == 8) {
-      if (row == 0) {
-        return ui::TableValue::integer(0);
-      }
-      if (row == 13) {
-        return ui::TableValue::integer(100);
-      }
-      if (row == 14) {
-        return ui::TableValue::integer(-1);
-      }
-      return ui::TableValue::integer(50);
-    }
-
-    switch (column) {
-      case 0:
-        std::snprintf(buf, sizeof(buf), "Row %d", row);
-        break;
-      case 2:
-        if (row == 9) {
-          return ui::TableValue::string(row9text_);
+      if (column == 3) {
+        if (row == self->yellow_row_) {
+          return ui::TableValue::color(1, 1, 0, 1).release();
         }
-        // fall through
-      case 1:
-        std::strcpy(buf, "Part");
-        break;
-      case 6:
-        std::strcpy(buf, "Make Yellow");
-        break;
-      default:
-        buf[0] = '\0';
-        break;
-    }
-    return ui::TableValue::string(buf);
-  }
+        if (row == 3) {
+          return ui::TableValue::color(1, 0, 0, 1).release();
+        }
+        if (row == 11) {
+          return ui::TableValue::color(0, 0.5, 1, 0.5).release();
+        }
+        return nullptr;
+      }
+      if (column == 4) {
+        if ((row % 2) == 1) {
+          return ui::TableValue::color(0.5, 0, 0.75, 1).release();
+        }
+        return nullptr;
+      }
+      if (column == 5) {
+        return ui::TableValue::image(row < 8 ? self->img_[0] : self->img_[1]).release();
+      }
+      if (column == 7) {
+        return ui::TableValue::integer(self->check_states_[row]).release();
+      }
+      if (column == 8) {
+        if (row == 0) {
+          return ui::TableValue::integer(0).release();
+        }
+        if (row == 13) {
+          return ui::TableValue::integer(100).release();
+        }
+        if (row == 14) {
+          return ui::TableValue::integer(-1).release();
+        }
+        return ui::TableValue::integer(50).release();
+      }
 
-  void set_cell_value(int row, int column, const ui::TableValue &value) override {
-    if (row == 9 && column == 2 && !value.empty()) {
-      std::strncpy(row9text_, value.as_string(), sizeof(row9text_) - 1);
-      row9text_[sizeof(row9text_) - 1] = '\0';
-    }
-    if (column == 6) {
-      int prev = yellow_row_;
-      yellow_row_ = row;
-      if (model_ != nullptr) {
+      switch (column) {
+        case 0:
+          std::snprintf(buf, sizeof(buf), "Row %d", row);
+          break;
+        case 2:
+          if (row == 9) {
+            return ui::TableValue::string(self->row9text_).release();
+          }
+          // fall through
+        case 1:
+          std::strcpy(buf, "Part");
+          break;
+        case 6:
+          std::strcpy(buf, "Make Yellow");
+          break;
+        default:
+          buf[0] = '\0';
+          break;
+      }
+      return ui::TableValue::string(buf).release();
+    };
+
+    SetCellValue = [](uiTableModelHandler *mh, uiTableModel *m, int row, int column,
+                      const uiTableValue *value) {
+      auto *self = static_cast<Page16Handler *>(mh);
+      ui::TableValue cell = ui::TableValue::wrap(value);
+
+      if (row == 9 && column == 2 && !cell.empty()) {
+        std::strncpy(self->row9text_, cell.as_string(), sizeof(self->row9text_) - 1);
+        self->row9text_[sizeof(self->row9text_) - 1] = '\0';
+      }
+      if (column == 6) {
+        int prev = self->yellow_row_;
+        self->yellow_row_ = row;
         if (prev != -1) {
-          model_->row_changed(prev);
+          ui::TableModel::wrap(m).row_changed(prev);
         }
-        model_->row_changed(yellow_row_);
+        ui::TableModel::wrap(m).row_changed(self->yellow_row_);
       }
-    }
-    if (column == 7 && !value.empty()) {
-      check_states_[row] = value.as_int();
-      std::printf("Checkbox[%d] = %d\n", row, check_states_[row]);
-    }
+      if (column == 7 && !cell.empty()) {
+        self->check_states_[row] = cell.as_int();
+        std::printf("Checkbox[%d] = %d\n", row, self->check_states_[row]);
+      }
+    };
   }
-
-  void attach(ui::TableModel *model) override { model_ = model; }
 
   const int *check_states() const { return check_states_; }
 
@@ -137,10 +137,10 @@ class Page16Model : public ui::TableModelHandler {
   char row9text_[1024];
   int yellow_row_ = -1;
   int check_states_[15];
-  ui::TableModel *model_ = nullptr;
 };
 
 struct Context {
+  Page16Handler handler;
   ui::TableModel table_model;
   uiTable *table = nullptr;
   ui::Label lbl_row_clicked;
@@ -152,7 +152,9 @@ struct Context {
   ui::Spinbox column_width;
   int count_selection_changed = 0;
 
-  Context() : table_model(ui::TableModel::make<Page16Model>()) {}
+  Context() : table_model(ui::TableModel::make(handler)) {}
+
+  ~Context() { table_model.free(); }
 
   ui::VerticalBox make_page();
 };
@@ -266,7 +268,7 @@ static void select_checked(uiButton *, void *data) {
   table = ui::Table::wrap(ctx->table);
   std::vector<int> rows;
   for (int i = 0; i < 15; ++i) {
-    if (ctx->table_model.handler_as<Page16Model>()->check_states()[i]) {
+    if (ctx->handler.check_states()[i]) {
       rows.push_back(i);
     }
   }
