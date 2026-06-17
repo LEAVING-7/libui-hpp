@@ -102,7 +102,7 @@ struct PopupWindow {
                   .margined(false)
                   .resizable(false)
                   .set_child(area_);
-    window_.on_focus_changed(on_focus_changed, this).show();
+    window_.on_focus_changed<PopupWindow, &PopupWindow::on_focus_changed>(this).show();
 #ifdef _WIN32
     apply_rounded_window_shape(window_.raw(), kPopupWidth, kPopupHeight, kPopupCornerRadius);
 #endif
@@ -123,8 +123,8 @@ struct PopupWindow {
   ui::Area area_{};
   ui::AreaHandler handler_{};
 
-  static void on_focus_changed(uiWindow *sender, void *data) {
-    if (uiWindowFocused(sender) != 0) {
+  void on_focus_changed(ui::Window sender) {
+    if (sender.focused()) {
       return;
     }
     ui::Application::queue_main(
@@ -134,7 +134,7 @@ struct PopupWindow {
             self->close();
           }
         },
-        data);
+        this);
   }
 };
 
@@ -184,18 +184,16 @@ class NumbersPage {
   ui::HorizontalBox root() const { return root_.copy(); }
 
  private:
-  static void on_spinbox_changed(uiSpinbox *, void *data) {
-    auto *self = static_cast<NumbersPage *>(data);
-    int value = self->spinbox_.value();
-    self->slider_.set_value(value);
-    self->progress_.set_value(value);
+  void on_spinbox_changed(ui::Spinbox sender) {
+    int value = spinbox_.value();
+    slider_.set_value(value);
+    progress_.set_value(value);
   }
 
-  static void on_slider_changed(uiSlider *, void *data) {
-    auto *self = static_cast<NumbersPage *>(data);
-    int value = self->slider_.value();
-    self->spinbox_.set_value(value);
-    self->progress_.set_value(value);
+  void on_slider_changed(ui::Slider sender) {
+    int value = slider_.value();
+    spinbox_.set_value(value);
+    progress_.set_value(value);
   }
 
   void build_layout() {
@@ -205,9 +203,9 @@ class NumbersPage {
             .append_stretchy(ui::Group::make("Numbers").margined(true).set_child(
                 ui::VerticalBox::make()
                     .append(ui::Spinbox::make_into(spinbox_, 0, 100)
-                                .on_changed(on_spinbox_changed, this))
-                    .append(
-                        ui::Slider::make_into(slider_, 0, 100).on_changed(on_slider_changed, this))
+                                .on_changed<NumbersPage, &NumbersPage::on_spinbox_changed>(this))
+                    .append(ui::Slider::make_into(slider_, 0, 100)
+                                .on_changed<NumbersPage, &NumbersPage::on_slider_changed>(this))
                     .append(ui::ProgressBar::make_into(progress_))
                     .append(ui::ProgressBar::make().set_value(-1))
                     .padded(true)))
@@ -244,45 +242,45 @@ class DataChoosersPage {
   ui::HorizontalBox root() const { return root_.copy(); }
 
  private:
-  static void on_open_file_clicked(uiButton *, void *data) {
-    auto *self = static_cast<DataChoosersPage *>(data);
-    ui::Text filename = ui::open_file(self->owner_);
+  void on_open_file_clicked(ui::Button sender) {
+    (void)sender;
+    ui::Text filename = ui::open_file(owner_);
     if (filename.empty()) {
-      self->open_file_entry_.set_text("(cancelled)");
+      open_file_entry_.set_text("(cancelled)");
       return;
     }
-    self->open_file_entry_.set_text(filename.c_str());
+    open_file_entry_.set_text(filename.c_str());
   }
 
-  static void on_open_folder_clicked(uiButton *, void *data) {
-    auto *self = static_cast<DataChoosersPage *>(data);
-    ui::Text filename = ui::open_folder(self->owner_);
+  void on_open_folder_clicked(ui::Button sender) {
+    (void)sender;
+    ui::Text filename = ui::open_folder(owner_);
     if (filename.empty()) {
-      self->open_folder_entry_.set_text("(cancelled)");
+      open_folder_entry_.set_text("(cancelled)");
       return;
     }
-    self->open_folder_entry_.set_text(filename.c_str());
+    open_folder_entry_.set_text(filename.c_str());
   }
 
-  static void on_save_file_clicked(uiButton *, void *data) {
-    auto *self = static_cast<DataChoosersPage *>(data);
-    ui::Text filename = ui::save_file(self->owner_);
+  void on_save_file_clicked(ui::Button sender) {
+    (void)sender;
+    ui::Text filename = ui::save_file(owner_);
     if (filename.empty()) {
-      self->save_file_entry_.set_text("(cancelled)");
+      save_file_entry_.set_text("(cancelled)");
       return;
     }
-    self->save_file_entry_.set_text(filename.c_str());
+    save_file_entry_.set_text(filename.c_str());
   }
 
-  static void on_message_box_clicked(uiButton *, void *data) {
-    auto *self = static_cast<DataChoosersPage *>(data);
-    ui::msg_box(self->owner_, "This is a normal message box.",
+  void on_message_box_clicked(ui::Button sender) {
+    (void)sender;
+    ui::msg_box(owner_, "This is a normal message box.",
                 "More detailed information can be shown here.");
   }
 
-  static void on_error_box_clicked(uiButton *, void *data) {
-    auto *self = static_cast<DataChoosersPage *>(data);
-    ui::msg_box_error(self->owner_, "This message box describes an error.",
+  void on_error_box_clicked(ui::Button sender) {
+    (void)sender;
+    ui::msg_box_error(owner_, "This message box describes an error.",
                       "More detailed information can be shown here.");
   }
 
@@ -306,27 +304,37 @@ class DataChoosersPage {
                             .append(ui::Entry::make_into(open_file_entry_).readonly(true), 1, 0, 1,
                                     1, true, uiAlignFill, false, uiAlignFill)
                             .append(ui::Button::make_into(open_file_button_, "  Open File  ")
-                                        .on_clicked(on_open_file_clicked, this),
+                                        .on_clicked<DataChoosersPage,
+                                                    &DataChoosersPage::on_open_file_clicked>(this),
                                     0, 0, 1, 1, false, uiAlignFill, false, uiAlignFill)
                             .append(ui::Entry::make_into(open_folder_entry_).readonly(true), 1, 1,
                                     1, 1, true, uiAlignFill, false, uiAlignFill)
-                            .append(ui::Button::make_into(open_folder_button_, "Open Folder")
-                                        .on_clicked(on_open_folder_clicked, this),
-                                    0, 1, 1, 1, false, uiAlignFill, false, uiAlignFill)
+                            .append(
+                                ui::Button::make_into(open_folder_button_, "Open Folder")
+                                    .on_clicked<DataChoosersPage,
+                                                &DataChoosersPage::on_open_folder_clicked>(this),
+                                0, 1, 1, 1, false, uiAlignFill, false, uiAlignFill)
                             .append(ui::Entry::make_into(save_file_entry_).readonly(true), 1, 2, 1,
                                     1, true, uiAlignFill, false, uiAlignFill)
                             .append(ui::Button::make_into(save_file_button_, "  Save File  ")
-                                        .on_clicked(on_save_file_clicked, this),
+                                        .on_clicked<DataChoosersPage,
+                                                    &DataChoosersPage::on_save_file_clicked>(this),
                                     0, 2, 1, 1, false, uiAlignFill, false, uiAlignFill)
                             .append(
                                 ui::Grid::make()
                                     .padded(true)
-                                    .append(ui::Button::make_into(msg_box_button_, "Message Box")
-                                                .on_clicked(on_message_box_clicked, this),
-                                            0, 0, 1, 1, false, uiAlignFill, false, uiAlignFill)
-                                    .append(ui::Button::make_into(error_box_button_, "Error Box")
-                                                .on_clicked(on_error_box_clicked, this),
-                                            1, 0, 1, 1, false, uiAlignFill, false, uiAlignFill),
+                                    .append(
+                                        ui::Button::make_into(msg_box_button_, "Message Box")
+                                            .on_clicked<DataChoosersPage,
+                                                        &DataChoosersPage::on_message_box_clicked>(
+                                                this),
+                                        0, 0, 1, 1, false, uiAlignFill, false, uiAlignFill)
+                                    .append(
+                                        ui::Button::make_into(error_box_button_, "Error Box")
+                                            .on_clicked<DataChoosersPage,
+                                                        &DataChoosersPage::on_error_box_clicked>(
+                                                this),
+                                        1, 0, 1, 1, false, uiAlignFill, false, uiAlignFill),
                                 0, 3, 2, 1, false, uiAlignCenter, false, uiAlignStart))
                     .padded(true));
   }
@@ -359,9 +367,9 @@ class PopupPage {
   void close_popup_if_open() { popup_.close(); }
 
  private:
-  static void on_toggle_popup_clicked(uiButton *, void *data) {
-    auto *self = static_cast<PopupPage *>(data);
-    self->popup_.toggle();
+  void on_toggle_popup_clicked(ui::Button sender) {
+    (void)sender;
+    popup_.toggle();
   }
 
   void build_layout() {
@@ -372,8 +380,9 @@ class PopupPage {
                 ui::VerticalBox::make()
                     .padded(true)
                     .append(ui::Label::make("Borderless popup that closes when clicking outside."))
-                    .append(ui::Button::make("Toggle Popup")
-                                .on_clicked(on_toggle_popup_clicked, this))));
+                    .append(
+                        ui::Button::make("Toggle Popup")
+                            .on_clicked<PopupPage, &PopupPage::on_toggle_popup_clicked>(this))));
   }
 
   ui::VerticalBox root_{};
@@ -475,14 +484,14 @@ class GalleryApp {
     main_window_.set_child(tab_);
     main_window_.margined(true);
 
-    tab_.append("Basic Controls", basic_controls_page_.root());
-    tab_.set_margined(0, true);
-    tab_.append("Numbers and Lists", numbers_page_.root());
-    tab_.set_margined(1, true);
-    tab_.append("Data Choosers", data_choosers_page_.root());
-    tab_.set_margined(2, true);
-    tab_.append("Popup Window", popup_page_.root());
-    tab_.set_margined(3, true);
+    tab_.append("Basic Controls", basic_controls_page_.root())
+        .set_margined(0, true)
+        .append("Numbers and Lists", numbers_page_.root())
+        .set_margined(1, true)
+        .append("Data Choosers", data_choosers_page_.root())
+        .set_margined(2, true)
+        .append("Popup Window", popup_page_.root())
+        .set_margined(3, true);
   }
 
   ui::Window main_window_{};
