@@ -2,13 +2,13 @@
 
 A header-only C++ wrapper around [libui-ng](https://github.com/libui-ng/libui-ng) with a fluent widget API.
 
-libui-hpp wraps the C API of libui-ng in `namespace ui`, using RAII-friendly value types, method chaining, and variadic helpers for layout. The library ships as a single header (`include/ui/ui.hpp`) and a CMake `INTERFACE` target named `ui`.
+libui-hpp wraps the C API of libui-ng in `namespace ui`, using RAII-friendly value types and method chaining for widget and layout setup. The library ships as a single header (`include/ui/ui.hpp`) and a CMake `INTERFACE` target named `ui`.
 
 ## Features
 
 - Header-only: `#include <ui/ui.hpp>` and link against libui-ng
 - Chainable widget API (`Window`, `Button`, `Tab`, `VerticalBox`, and more)
-- Variadic box constructors for concise layout code
+- Fluent box composition with chained `append()` calls
 - Cross-platform via libui-ng (Windows, macOS, Linux)
 
 ## Requirements
@@ -91,9 +91,10 @@ int main() {
   window.set_child(tab).margined(true);
 
   tab.append("Basic Controls",
-             ui::VerticalBox::make(ui::Button::make("Button"),
-                                   ui::Label::make("Hello from libui-hpp."),
-                                   ui::Spinbox::make(0, 100))
+             ui::VerticalBox::make()
+                 .append(ui::Button::make("Button"))
+                 .append(ui::Label::make("Hello from libui-hpp."))
+                 .append(ui::Spinbox::make(0, 100))
                  .padded(true));
   tab.set_margined(0, true);
 

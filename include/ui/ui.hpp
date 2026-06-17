@@ -5,7 +5,6 @@
 #include <cstring>
 #include <initializer_list>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -314,32 +313,10 @@ struct Window : Widget<Window, uiWindow> {
 
 struct VerticalBox : BoxBase<VerticalBox> {
   static VerticalBox make() { return wrap(uiNewVerticalBox()); }
-
-  template <typename... W, typename std::enable_if_t<
-                               (sizeof...(W) > 0)
-                                   && ((sizeof...(W) > 1)
-                                       || (!std::is_same_v<std::decay_t<W>, VerticalBox> && ...)),
-                               int> = 0>
-  static VerticalBox make(W &&...children) {
-    VerticalBox result = make();
-    (result.append(std::forward<W>(children)), ...);
-    return result;
-  }
 };
 
 struct HorizontalBox : BoxBase<HorizontalBox> {
   static HorizontalBox make() { return wrap(uiNewHorizontalBox()); }
-
-  template <typename... W, typename std::enable_if_t<
-                               (sizeof...(W) > 0)
-                                   && ((sizeof...(W) > 1)
-                                       || (!std::is_same_v<std::decay_t<W>, HorizontalBox> && ...)),
-                               int> = 0>
-  static HorizontalBox make(W &&...children) {
-    HorizontalBox result = make();
-    (result.append(std::forward<W>(children)), ...);
-    return result;
-  }
 };
 
 struct Button : Widget<Button, uiButton> {
