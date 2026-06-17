@@ -311,6 +311,63 @@ int main() {
     return 1;
   }
 
+  ui::Menu file_menu = ui::Menu::make("File");
+  file_menu.append_item("Open")
+      .on_clicked(
+          [](uiMenuItem *, uiWindow *window, void *) {
+            ui::Window parent = ui::Window::wrap(window);
+            ui::Text filename = ui::open_file(parent);
+            if (filename.empty()) {
+              ui::msg_box_error(parent, "No file selected", "Don't be alarmed!");
+              return;
+            }
+            ui::msg_box(parent, "File selected", filename.c_str());
+          },
+          nullptr);
+  file_menu.append_item("Open Folder")
+      .on_clicked(
+          [](uiMenuItem *, uiWindow *window, void *) {
+            ui::Window parent = ui::Window::wrap(window);
+            ui::Text filename = ui::open_folder(parent);
+            if (filename.empty()) {
+              ui::msg_box_error(parent, "No folder selected", "Don't be alarmed!");
+              return;
+            }
+            ui::msg_box(parent, "Folder selected", filename.c_str());
+          },
+          nullptr);
+  file_menu.append_item("Save")
+      .on_clicked(
+          [](uiMenuItem *, uiWindow *window, void *) {
+            ui::Window parent = ui::Window::wrap(window);
+            ui::Text filename = ui::save_file(parent);
+            if (filename.empty()) {
+              ui::msg_box_error(parent, "No file selected", "Don't be alarmed!");
+              return;
+            }
+            ui::msg_box(parent, "File selected (don't worry, it's still there)", filename.c_str());
+          },
+          nullptr);
+  file_menu.append_quit_item();
+
+  ui::Menu edit_menu = ui::Menu::make("Edit");
+  edit_menu.append_check_item("Checkable Item");
+  edit_menu.append_separator();
+  edit_menu.append_item("Disabled Item").disable();
+  edit_menu.append_preferences_item();
+
+  ui::Menu help_menu = ui::Menu::make("Help");
+  help_menu.append_item("Help");
+  help_menu.append_about_item();
+
+  ui::Application::on_should_quit(
+      [](void *) {
+        g_app.popup.close();
+        g_app.mainwin->destroy();
+        return 1;
+      },
+      nullptr);
+
   {
     ui::Window mainwin = ui::Window::make("libui Control Gallery", 640, 480, true);
     g_app.mainwin = &mainwin;
@@ -318,13 +375,6 @@ int main() {
     mainwin.on_closing(
         [](uiWindow *, void *) {
           ui::Application::quit();
-          return 1;
-        },
-        nullptr);
-    ui::Application::on_should_quit(
-        [](void *) {
-          g_app.popup.close();
-          g_app.mainwin->destroy();
           return 1;
         },
         nullptr);
