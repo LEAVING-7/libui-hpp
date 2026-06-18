@@ -16,6 +16,22 @@ class Text;
 
 namespace detail {
 Text adopt_text(char *text);
+
+template <typename T, typename W, void (T::*Method)(W)>
+void widget_member_thunk(typename W::RawType *raw_sender, void *data) {
+  (static_cast<T *>(data)->*Method)(W::wrap(raw_sender));
+}
+
+template <typename T, typename W, int (T::*Method)(W)>
+int widget_member_thunk_int(typename W::RawType *raw_sender, void *data) {
+  return (static_cast<T *>(data)->*Method)(W::wrap(raw_sender));
+}
+
+template <typename T, typename W, void (T::*Method)(W, int)>
+void widget_member_thunk_with_int(typename W::RawType *raw_sender, int arg, void *data) {
+  (static_cast<T *>(data)->*Method)(W::wrap(raw_sender), arg);
+}
+
 }  // namespace detail
 
 class Text {
@@ -66,6 +82,8 @@ constexpr int kTableModelColumnAlwaysEditable = uiTableModelColumnAlwaysEditable
 
 template <typename D, typename R>
 struct Widget {
+  using RawType = R;
+
   uiControl *ctrl() const { return uiControl(w_); }
 
   R *raw() const { return w_; }
@@ -118,6 +136,12 @@ struct Widget {
       uiControlDestroy(ctrl());
       w_ = nullptr;
     }
+  }
+
+  D copy() const {
+    D result;
+    result.w_ = this->w_;
+    return result;
   }
 
   D copy(D &out) {
@@ -297,7 +321,7 @@ struct Window : Widget<Window, uiWindow> {
 
   template <typename T, int (T::*Method)(Window)>
   Window on_closing(T *self) {
-    uiWindowOnClosing(w_, detail::widget_member_thunk_int<T, Window, Method, uiWindow>, self);
+    uiWindowOnClosing(w_, ui::detail::widget_member_thunk_int<T, Window, Method>, self);
     return *this;
   }
 
@@ -308,7 +332,7 @@ struct Window : Widget<Window, uiWindow> {
 
   template <typename T, void (T::*Method)(Window)>
   Window on_position_changed(T *self) {
-    uiWindowOnPositionChanged(w_, detail::widget_member_thunk<T, Window, Method, uiWindow>, self);
+    uiWindowOnPositionChanged(w_, detail::widget_member_thunk<T, Window, Method>, self);
     return *this;
   }
 
@@ -319,8 +343,7 @@ struct Window : Widget<Window, uiWindow> {
 
   template <typename T, void (T::*Method)(Window)>
   Window on_content_size_changed(T *self) {
-    uiWindowOnContentSizeChanged(w_, detail::widget_member_thunk<T, Window, Method, uiWindow>,
-                                  self);
+    uiWindowOnContentSizeChanged(w_, detail::widget_member_thunk<T, Window, Method>, self);
     return *this;
   }
 
@@ -331,7 +354,7 @@ struct Window : Widget<Window, uiWindow> {
 
   template <typename T, void (T::*Method)(Window)>
   Window on_focus_changed(T *self) {
-    uiWindowOnFocusChanged(w_, detail::widget_member_thunk<T, Window, Method, uiWindow>, self);
+    uiWindowOnFocusChanged(w_, detail::widget_member_thunk<T, Window, Method>, self);
     return *this;
   }
 };
@@ -361,7 +384,7 @@ struct Button : Widget<Button, uiButton> {
 
   template <typename T, void (T::*Method)(Button)>
   Button on_clicked(T *self) {
-    uiButtonOnClicked(w_, detail::widget_member_thunk<T, Button, Method, uiButton>, self);
+    uiButtonOnClicked(w_, detail::widget_member_thunk<T, Button, Method>, self);
     return *this;
   }
 };
@@ -390,7 +413,7 @@ struct Checkbox : Widget<Checkbox, uiCheckbox> {
 
   template <typename T, void (T::*Method)(Checkbox)>
   Checkbox on_toggled(T *self) {
-    uiCheckboxOnToggled(w_, detail::widget_member_thunk<T, Checkbox, Method, uiCheckbox>, self);
+    uiCheckboxOnToggled(w_, detail::widget_member_thunk<T, Checkbox, Method>, self);
     return *this;
   }
 };
@@ -434,7 +457,7 @@ struct Entry : Widget<Entry, uiEntry> {
 
   template <typename T, void (T::*Method)(Entry)>
   Entry on_changed(T *self) {
-    uiEntryOnChanged(w_, detail::widget_member_thunk<T, Entry, Method, uiEntry>, self);
+    uiEntryOnChanged(w_, detail::widget_member_thunk<T, Entry, Method>, self);
     return *this;
   }
 };
@@ -494,7 +517,7 @@ struct Tab : Widget<Tab, uiTab> {
 
   template <typename T, void (T::*Method)(Tab)>
   Tab on_selected(T *self) {
-    uiTabOnSelected(w_, detail::widget_member_thunk<T, Tab, Method, uiTab>, self);
+    uiTabOnSelected(w_, detail::widget_member_thunk<T, Tab, Method>, self);
     return *this;
   }
 };
@@ -546,7 +569,7 @@ struct Spinbox : Widget<Spinbox, uiSpinbox> {
 
   template <typename T, void (T::*Method)(Spinbox)>
   Spinbox on_changed(T *self) {
-    uiSpinboxOnChanged(w_, detail::widget_member_thunk<T, Spinbox, Method, uiSpinbox>, self);
+    uiSpinboxOnChanged(w_, detail::widget_member_thunk<T, Spinbox, Method>, self);
     return *this;
   }
 };
@@ -580,7 +603,7 @@ struct Slider : Widget<Slider, uiSlider> {
 
   template <typename T, void (T::*Method)(Slider)>
   Slider on_changed(T *self) {
-    uiSliderOnChanged(w_, detail::widget_member_thunk<T, Slider, Method, uiSlider>, self);
+    uiSliderOnChanged(w_, detail::widget_member_thunk<T, Slider, Method>, self);
     return *this;
   }
 
@@ -591,7 +614,7 @@ struct Slider : Widget<Slider, uiSlider> {
 
   template <typename T, void (T::*Method)(Slider)>
   Slider on_released(T *self) {
-    uiSliderOnReleased(w_, detail::widget_member_thunk<T, Slider, Method, uiSlider>, self);
+    uiSliderOnReleased(w_, detail::widget_member_thunk<T, Slider, Method>, self);
     return *this;
   }
 };
@@ -646,7 +669,7 @@ struct Combobox : Widget<Combobox, uiCombobox> {
 
   template <typename T, void (T::*Method)(Combobox)>
   Combobox on_selected(T *self) {
-    uiComboboxOnSelected(w_, detail::widget_member_thunk<T, Combobox, Method, uiCombobox>, self);
+    uiComboboxOnSelected(w_, detail::widget_member_thunk<T, Combobox, Method>, self);
     return *this;
   }
 };
@@ -673,10 +696,8 @@ struct EditableCombobox : Widget<EditableCombobox, uiEditableCombobox> {
 
   template <typename T, void (T::*Method)(EditableCombobox)>
   EditableCombobox on_changed(T *self) {
-    uiEditableComboboxOnChanged(w_,
-                                detail::widget_member_thunk<T, EditableCombobox, Method,
-                                                            uiEditableCombobox>,
-                                self);
+    uiEditableComboboxOnChanged(
+        w_, detail::widget_member_thunk<T, EditableCombobox, Method>, self);
     return *this;
   }
 };
@@ -703,9 +724,8 @@ struct RadioButtons : Widget<RadioButtons, uiRadioButtons> {
 
   template <typename T, void (T::*Method)(RadioButtons)>
   RadioButtons on_selected(T *self) {
-    uiRadioButtonsOnSelected(w_,
-                             detail::widget_member_thunk<T, RadioButtons, Method, uiRadioButtons>,
-                             self);
+    uiRadioButtonsOnSelected(
+        w_, detail::widget_member_thunk<T, RadioButtons, Method>, self);
     return *this;
   }
 };
@@ -731,10 +751,8 @@ struct DateTimePicker : Widget<DateTimePicker, uiDateTimePicker> {
 
   template <typename T, void (T::*Method)(DateTimePicker)>
   DateTimePicker on_changed(T *self) {
-    uiDateTimePickerOnChanged(w_,
-                              detail::widget_member_thunk<T, DateTimePicker, Method,
-                                                          uiDateTimePicker>,
-                              self);
+    uiDateTimePickerOnChanged(
+        w_, detail::widget_member_thunk<T, DateTimePicker, Method>, self);
     return *this;
   }
 };
@@ -770,10 +788,8 @@ struct MultilineEntry : Widget<MultilineEntry, uiMultilineEntry> {
 
   template <typename T, void (T::*Method)(MultilineEntry)>
   MultilineEntry on_changed(T *self) {
-    uiMultilineEntryOnChanged(w_,
-                              detail::widget_member_thunk<T, MultilineEntry, Method,
-                                                          uiMultilineEntry>,
-                              self);
+    uiMultilineEntryOnChanged(
+        w_, detail::widget_member_thunk<T, MultilineEntry, Method>, self);
     return *this;
   }
 };
@@ -797,7 +813,7 @@ struct ColorButton : Widget<ColorButton, uiColorButton> {
 
   template <typename T, void (T::*Method)(ColorButton)>
   ColorButton on_changed(T *self) {
-    uiColorButtonOnChanged(w_, detail::widget_member_thunk<T, ColorButton, Method, uiColorButton>,
+    uiColorButtonOnChanged(w_, detail::widget_member_thunk<T, ColorButton, Method>,
                            self);
     return *this;
   }
@@ -836,7 +852,10 @@ struct MenuItem {
 
   template <typename T, void (T::*Method)(MenuItem, Window)>
   MenuItem on_clicked(T *self) {
-    uiMenuItemOnClicked(item, detail::menu_item_member_thunk<T, Method>, self);
+    auto thunk = +[](uiMenuItem *sender, uiWindow *window, void *data) {
+      return (static_cast<T *>(data)->*Method)(MenuItem::from(sender), Window::wrap(window));
+    };
+    uiMenuItemOnClicked(item, thunk, self);
     return *this;
   }
 };
@@ -935,7 +954,7 @@ struct FontButton : Widget<FontButton, uiFontButton> {
 
   template <typename T, void (T::*Method)(FontButton)>
   FontButton on_changed(T *self) {
-    uiFontButtonOnChanged(w_, detail::widget_member_thunk<T, FontButton, Method, uiFontButton>,
+    uiFontButtonOnChanged(w_, detail::widget_member_thunk<T, FontButton, Method>,
                           self);
     return *this;
   }
@@ -1514,54 +1533,28 @@ struct Table : Widget<Table, uiTable> {
 
   template <typename T, void (T::*Method)(Table, int)>
   Table on_row_clicked(T *self) {
-    uiTableOnRowClicked(w_, detail::widget_member_thunk_with_int<T, Table, Method, uiTable>, self);
+    uiTableOnRowClicked(w_, detail::widget_member_thunk_with_int<T, Table, Method>, self);
     return *this;
   }
 
   template <typename T, void (T::*Method)(Table, int)>
   Table on_row_double_clicked(T *self) {
-    uiTableOnRowDoubleClicked(w_, detail::widget_member_thunk_with_int<T, Table, Method, uiTable>,
-                                self);
+    uiTableOnRowDoubleClicked(w_, detail::widget_member_thunk_with_int<T, Table, Method>, self);
     return *this;
   }
 
   template <typename T, void (T::*Method)(Table)>
   Table on_selection_changed(T *self) {
-    uiTableOnSelectionChanged(w_, detail::widget_member_thunk<T, Table, Method, uiTable>, self);
+    uiTableOnSelectionChanged(w_, detail::widget_member_thunk<T, Table, Method>, self);
     return *this;
   }
 
   template <typename T, void (T::*Method)(Table, int)>
   Table header_on_clicked(T *self) {
-    uiTableHeaderOnClicked(w_, detail::widget_member_thunk_with_int<T, Table, Method, uiTable>,
-                           self);
+    uiTableHeaderOnClicked(w_, detail::widget_member_thunk_with_int<T, Table, Method>, self);
     return *this;
   }
 };
-
-namespace detail {
-
-template <typename T, typename W, void (T::*Method)(W), typename Raw>
-void widget_member_thunk(Raw *raw_sender, void *data) {
-  (static_cast<T *>(data)->*Method)(W::wrap(raw_sender));
-}
-
-template <typename T, typename W, int (T::*Method)(W), typename Raw>
-int widget_member_thunk_int(Raw *raw_sender, void *data) {
-  return (static_cast<T *>(data)->*Method)(W::wrap(raw_sender));
-}
-
-template <typename T, typename W, void (T::*Method)(W, int), typename Raw>
-void widget_member_thunk_with_int(Raw *raw_sender, int arg, void *data) {
-  (static_cast<T *>(data)->*Method)(W::wrap(raw_sender), arg);
-}
-
-template <typename T, void (T::*Method)(MenuItem, Window)>
-void menu_item_member_thunk(uiMenuItem *raw_sender, uiWindow *raw_window, void *data) {
-  (static_cast<T *>(data)->*Method)(MenuItem::from(raw_sender), Window::wrap(raw_window));
-}
-
-}  // namespace detail
 
 struct Separator : Widget<Separator, uiSeparator> {
   static Separator make_horizontal() { return wrap(uiNewHorizontalSeparator()); }

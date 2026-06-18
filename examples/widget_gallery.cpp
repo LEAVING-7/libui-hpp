@@ -239,11 +239,10 @@ class DataChoosersPage {
   DataChoosersPage(const DataChoosersPage &) = delete;
   DataChoosersPage &operator=(const DataChoosersPage &) = delete;
 
-  ui::HorizontalBox root() const { return root_.copy(); }
+  ui::HorizontalBox root() const { return root_; }
 
  private:
   void on_open_file_clicked(ui::Button sender) {
-    (void)sender;
     ui::Text filename = ui::open_file(owner_);
     if (filename.empty()) {
       open_file_entry_.set_text("(cancelled)");
@@ -253,7 +252,6 @@ class DataChoosersPage {
   }
 
   void on_open_folder_clicked(ui::Button sender) {
-    (void)sender;
     ui::Text filename = ui::open_folder(owner_);
     if (filename.empty()) {
       open_folder_entry_.set_text("(cancelled)");
@@ -263,7 +261,6 @@ class DataChoosersPage {
   }
 
   void on_save_file_clicked(ui::Button sender) {
-    (void)sender;
     ui::Text filename = ui::save_file(owner_);
     if (filename.empty()) {
       save_file_entry_.set_text("(cancelled)");
@@ -273,13 +270,11 @@ class DataChoosersPage {
   }
 
   void on_message_box_clicked(ui::Button sender) {
-    (void)sender;
     ui::msg_box(owner_, "This is a normal message box.",
                 "More detailed information can be shown here.");
   }
 
   void on_error_box_clicked(ui::Button sender) {
-    (void)sender;
     ui::msg_box_error(owner_, "This message box describes an error.",
                       "More detailed information can be shown here.");
   }
@@ -367,10 +362,7 @@ class PopupPage {
   void close_popup_if_open() { popup_.close(); }
 
  private:
-  void on_toggle_popup_clicked(ui::Button sender) {
-    (void)sender;
-    popup_.toggle();
-  }
+  void on_toggle_popup_clicked(ui::Button sender) { popup_.toggle(); }
 
   void build_layout() {
     root_ = ui::VerticalBox::make().padded(true).append(
@@ -469,15 +461,8 @@ class GalleryApp {
           return 1;
         },
         this);
-    main_window_.on_closing(
-        [](uiWindow *, void *data) {
-          auto *self = static_cast<GalleryApp *>(data);
-          self->popup_page_.close_popup_if_open();
-          self->main_window_.destroy();
-          ui::Application::quit();
-          return 0;
-        },
-        this);
+    main_window_.on_closing<GalleryApp, &GalleryApp::on_window_closing>(this)
+        .on_position_changed<GalleryApp, &GalleryApp::on_window_position_changed>(this);
   }
 
   void setup_layout() {
@@ -492,6 +477,21 @@ class GalleryApp {
         .set_margined(2, true)
         .append("Popup Window", popup_page_.root())
         .set_margined(3, true);
+  }
+
+  int on_window_closing(ui::Window window) {
+    printf("window closing\n");
+    popup_page_.close_popup_if_open();
+    main_window_.destroy();
+    ui::Application::quit();
+    return 0;
+  }
+
+  void on_window_position_changed(ui::Window window) {
+    int32_t x;
+    int32_t y;
+    window.position(&x, &y);
+    printf("window moved to %d,%d\n", x, y);
   }
 
   ui::Window main_window_{};
