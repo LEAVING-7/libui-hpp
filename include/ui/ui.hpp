@@ -168,46 +168,40 @@ template <typename D>
 struct BoxBase : Widget<D, uiBox> {
   bool padded() const { return uiBoxPadded(this->w_) != 0; }
 
-  D copy() const {
-    D result;
-    result.w_ = this->w_;
-    return result;
-  }
-
   D padded(bool value) {
     uiBoxSetPadded(this->w_, value ? 1 : 0);
-    return copy();
+    return static_cast<D &>(*this);
   }
 
   int num_children() const { return uiBoxNumChildren(this->w_); }
 
   D delete_at(int index) {
     uiBoxDelete(this->w_, index);
-    return copy();
+    return static_cast<D &>(*this);
   }
 
   template <typename W>
   D append(W &child, bool stretchy = false) {
     uiBoxAppend(this->w_, child.ctrl(), stretchy ? 1 : 0);
-    return copy();
+    return static_cast<D &>(*this);
   }
 
   template <typename W>
   D append(W &&child, bool stretchy = false) {
     uiBoxAppend(this->w_, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
-    return copy();
+    return static_cast<D &>(*this);
   }
 
   template <typename W>
   D append_stretchy(W &child) {
     uiBoxAppend(this->w_, child.ctrl(), 1);
-    return copy();
+    return static_cast<D &>(*this);
   }
 
   template <typename W>
   D append_stretchy(W &&child) {
     uiBoxAppend(this->w_, std::forward<W>(child).ctrl(), 1);
-    return copy();
+    return static_cast<D &>(*this);
   }
 };
 
@@ -696,8 +690,7 @@ struct EditableCombobox : Widget<EditableCombobox, uiEditableCombobox> {
 
   template <typename T, void (T::*Method)(EditableCombobox)>
   EditableCombobox on_changed(T *self) {
-    uiEditableComboboxOnChanged(
-        w_, detail::widget_member_thunk<T, EditableCombobox, Method>, self);
+    uiEditableComboboxOnChanged(w_, detail::widget_member_thunk<T, EditableCombobox, Method>, self);
     return *this;
   }
 };
@@ -724,8 +717,7 @@ struct RadioButtons : Widget<RadioButtons, uiRadioButtons> {
 
   template <typename T, void (T::*Method)(RadioButtons)>
   RadioButtons on_selected(T *self) {
-    uiRadioButtonsOnSelected(
-        w_, detail::widget_member_thunk<T, RadioButtons, Method>, self);
+    uiRadioButtonsOnSelected(w_, detail::widget_member_thunk<T, RadioButtons, Method>, self);
     return *this;
   }
 };
@@ -751,8 +743,7 @@ struct DateTimePicker : Widget<DateTimePicker, uiDateTimePicker> {
 
   template <typename T, void (T::*Method)(DateTimePicker)>
   DateTimePicker on_changed(T *self) {
-    uiDateTimePickerOnChanged(
-        w_, detail::widget_member_thunk<T, DateTimePicker, Method>, self);
+    uiDateTimePickerOnChanged(w_, detail::widget_member_thunk<T, DateTimePicker, Method>, self);
     return *this;
   }
 };
@@ -788,8 +779,7 @@ struct MultilineEntry : Widget<MultilineEntry, uiMultilineEntry> {
 
   template <typename T, void (T::*Method)(MultilineEntry)>
   MultilineEntry on_changed(T *self) {
-    uiMultilineEntryOnChanged(
-        w_, detail::widget_member_thunk<T, MultilineEntry, Method>, self);
+    uiMultilineEntryOnChanged(w_, detail::widget_member_thunk<T, MultilineEntry, Method>, self);
     return *this;
   }
 };
@@ -813,8 +803,7 @@ struct ColorButton : Widget<ColorButton, uiColorButton> {
 
   template <typename T, void (T::*Method)(ColorButton)>
   ColorButton on_changed(T *self) {
-    uiColorButtonOnChanged(w_, detail::widget_member_thunk<T, ColorButton, Method>,
-                           self);
+    uiColorButtonOnChanged(w_, detail::widget_member_thunk<T, ColorButton, Method>, self);
     return *this;
   }
 };
@@ -954,8 +943,7 @@ struct FontButton : Widget<FontButton, uiFontButton> {
 
   template <typename T, void (T::*Method)(FontButton)>
   FontButton on_changed(T *self) {
-    uiFontButtonOnChanged(w_, detail::widget_member_thunk<T, FontButton, Method>,
-                          self);
+    uiFontButtonOnChanged(w_, detail::widget_member_thunk<T, FontButton, Method>, self);
     return *this;
   }
 };
@@ -1648,25 +1636,19 @@ struct Area : Widget<Area, uiArea> {
     return wrap(uiNewScrollingArea(handler.raw(), width, height));
   }
 
-  Area copy() const {
-    Area result;
-    result.w_ = w_;
-    return result;
-  }
-
   Area set_size(int width, int height) {
     uiAreaSetSize(w_, width, height);
-    return copy();
+    return *this;
   }
 
   Area queue_redraw_all() {
     uiAreaQueueRedrawAll(w_);
-    return copy();
+    return *this;
   }
 
   Area scroll_to(double x, double y, double width, double height) {
     uiAreaScrollTo(w_, x, y, width, height);
-    return copy();
+    return *this;
   }
 
   void begin_user_window_move() { uiAreaBeginUserWindowMove(w_); }
