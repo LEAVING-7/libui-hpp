@@ -282,11 +282,10 @@ ui::VerticalBox Context::make_page() {
   ui::Table table = ui::Table::make(params);
   this->table = table.raw();
 
-  ui::TableTextColumnParams text_params;
-  text_params.color_model_column = 4;
+  uiTableTextColumnOptionalParams text_params{4};
 
   table.append_text_column("Column 1", 0, ui::kTableModelColumnNeverEditable)
-      .append_image_text_column("Column 2", 5, 1, ui::kTableModelColumnNeverEditable, &text_params)
+      .append_image_text_column("Column 2", 5, 1, ui::kTableModelColumnNeverEditable, text_params)
       .append_text_column("Editable", 2, ui::kTableModelColumnAlwaysEditable)
       .append_checkbox_column("Checkboxes", 7, ui::kTableModelColumnAlwaysEditable)
       .append_button_column("Buttons", 6, ui::kTableModelColumnAlwaysEditable)

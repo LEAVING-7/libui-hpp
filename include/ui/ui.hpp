@@ -1391,10 +1391,6 @@ class TableSelection {
   }
 };
 
-struct TableTextColumnParams {
-  int color_model_column = -1;
-};
-
 struct Table : Widget<Table, uiTable> {
   struct Params {
     TableModel *model = nullptr;
@@ -1409,14 +1405,9 @@ struct Table : Widget<Table, uiTable> {
   }
 
   Table append_text_column(const char *name, int text_model_column, int text_editable_model_column,
-                           const TableTextColumnParams *text_params = nullptr) {
-    uiTableTextColumnOptionalParams tp{};
-    uiTableTextColumnOptionalParams *tp_ptr = nullptr;
-    if (text_params != nullptr) {
-      tp.ColorModelColumn = text_params->color_model_column;
-      tp_ptr = &tp;
-    }
-    uiTableAppendTextColumn(w_, name, text_model_column, text_editable_model_column, tp_ptr);
+                           const uiTableTextColumnOptionalParams &text_params = {-1}) {
+    uiTableAppendTextColumn(w_, name, text_model_column, text_editable_model_column,
+                            const_cast<uiTableTextColumnOptionalParams *>(&text_params));
     return *this;
   }
 
@@ -1427,15 +1418,10 @@ struct Table : Widget<Table, uiTable> {
 
   Table append_image_text_column(const char *name, int image_model_column, int text_model_column,
                                  int text_editable_model_column,
-                                 const TableTextColumnParams *text_params = nullptr) {
-    uiTableTextColumnOptionalParams tp{};
-    uiTableTextColumnOptionalParams *tp_ptr = nullptr;
-    if (text_params != nullptr) {
-      tp.ColorModelColumn = text_params->color_model_column;
-      tp_ptr = &tp;
-    }
+                                 const uiTableTextColumnOptionalParams &text_params = {-1}) {
     uiTableAppendImageTextColumn(w_, name, image_model_column, text_model_column,
-                                 text_editable_model_column, tp_ptr);
+                                 text_editable_model_column,
+                                 const_cast<uiTableTextColumnOptionalParams *>(&text_params));
     return *this;
   }
 
@@ -1448,15 +1434,10 @@ struct Table : Widget<Table, uiTable> {
   Table append_checkbox_text_column(const char *name, int checkbox_model_column,
                                     int checkbox_editable_model_column, int text_model_column,
                                     int text_editable_model_column,
-                                    const TableTextColumnParams *text_params = nullptr) {
-    uiTableTextColumnOptionalParams tp{};
-    uiTableTextColumnOptionalParams *tp_ptr = nullptr;
-    if (text_params != nullptr) {
-      tp.ColorModelColumn = text_params->color_model_column;
-      tp_ptr = &tp;
-    }
+                                    const uiTableTextColumnOptionalParams &text_params = {-1}) {
     uiTableAppendCheckboxTextColumn(w_, name, checkbox_model_column, checkbox_editable_model_column,
-                                    text_model_column, text_editable_model_column, tp_ptr);
+                                    text_model_column, text_editable_model_column,
+                                    const_cast<uiTableTextColumnOptionalParams *>(&text_params));
     return *this;
   }
 
