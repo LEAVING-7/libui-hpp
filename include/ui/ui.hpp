@@ -102,16 +102,9 @@ struct Widget {
   }
 
   template <typename W>
-  D set_parent(W &parent) {
+  D set_parent(const W &parent) {
     assert((uiControlVerifySetParent(ctrl(), parent.ctrl()), true));
     uiControlSetParent(ctrl(), parent.ctrl());
-    return static_cast<D &>(*this);
-  }
-
-  template <typename W>
-  D set_parent(W &&parent) {
-    assert((uiControlVerifySetParent(ctrl(), std::forward<W>(parent).ctrl()), true));
-    uiControlSetParent(ctrl(), std::forward<W>(parent).ctrl());
     return static_cast<D &>(*this);
   }
 
@@ -181,26 +174,14 @@ struct BoxBase : Widget<D, uiBox> {
   }
 
   template <typename W>
-  D append(W &child, bool stretchy = false) {
+  D append(const W &child, bool stretchy = false) {
     uiBoxAppend(this->w_, child.ctrl(), stretchy ? 1 : 0);
     return static_cast<D &>(*this);
   }
 
   template <typename W>
-  D append(W &&child, bool stretchy = false) {
-    uiBoxAppend(this->w_, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
-    return static_cast<D &>(*this);
-  }
-
-  template <typename W>
-  D append_stretchy(W &child) {
+  D append_stretchy(const W &child) {
     uiBoxAppend(this->w_, child.ctrl(), 1);
-    return static_cast<D &>(*this);
-  }
-
-  template <typename W>
-  D append_stretchy(W &&child) {
-    uiBoxAppend(this->w_, std::forward<W>(child).ctrl(), 1);
     return static_cast<D &>(*this);
   }
 };
@@ -297,14 +278,8 @@ struct Window : Widget<Window, uiWindow> {
   }
 
   template <typename W>
-  Window set_child(W &child) {
+  Window set_child(const W &child) {
     uiWindowSetChild(w_, child.ctrl());
-    return *this;
-  }
-
-  template <typename W>
-  Window set_child(W &&child) {
-    uiWindowSetChild(w_, std::forward<W>(child).ctrl());
     return *this;
   }
 
@@ -476,26 +451,14 @@ struct Tab : Widget<Tab, uiTab> {
   }
 
   template <typename Page>
-  Tab append(const char *name, Page &page) {
+  Tab append(const char *name, const Page &page) {
     uiTabAppend(w_, name, page.ctrl());
     return *this;
   }
 
   template <typename Page>
-  Tab append(const char *name, Page &&page) {
-    uiTabAppend(w_, name, std::forward<Page>(page).ctrl());
-    return *this;
-  }
-
-  template <typename Page>
-  Tab insert_at(const char *name, int index, Page &page) {
+  Tab insert_at(const char *name, int index, const Page &page) {
     uiTabInsertAt(w_, name, index, page.ctrl());
-    return *this;
-  }
-
-  template <typename Page>
-  Tab insert_at(const char *name, int index, Page &&page) {
-    uiTabInsertAt(w_, name, index, std::forward<Page>(page).ctrl());
     return *this;
   }
 
@@ -534,14 +497,8 @@ struct Group : Widget<Group, uiGroup> {
   }
 
   template <typename W>
-  Group set_child(W &child) {
+  Group set_child(const W &child) {
     uiGroupSetChild(w_, child.ctrl());
-    return *this;
-  }
-
-  template <typename W>
-  Group set_child(W &&child) {
-    uiGroupSetChild(w_, std::forward<W>(child).ctrl());
     return *this;
   }
 };
@@ -1549,26 +1506,14 @@ struct Form : Widget<Form, uiForm> {
   }
 
   template <typename W>
-  Form append(const char *label, W &child, bool stretchy = false) {
+  Form append(const char *label, const W &child, bool stretchy = false) {
     uiFormAppend(w_, label, child.ctrl(), stretchy ? 1 : 0);
     return *this;
   }
 
   template <typename W>
-  Form append(const char *label, W &&child, bool stretchy = false) {
-    uiFormAppend(w_, label, std::forward<W>(child).ctrl(), stretchy ? 1 : 0);
-    return *this;
-  }
-
-  template <typename W>
-  Form append_stretchy(const char *label, W &child) {
+  Form append_stretchy(const char *label, const W &child) {
     uiFormAppend(w_, label, child.ctrl(), 1);
-    return *this;
-  }
-
-  template <typename W>
-  Form append_stretchy(const char *label, W &&child) {
-    uiFormAppend(w_, label, std::forward<W>(child).ctrl(), 1);
     return *this;
   }
 };
@@ -1584,7 +1529,7 @@ struct Grid : Widget<Grid, uiGrid> {
   }
 
   template <typename W>
-  Grid append(W &child, int left, int top, int xspan, int yspan, bool hexpand, uiAlign halign,
+  Grid append(const W &child, int left, int top, int xspan, int yspan, bool hexpand, uiAlign halign,
               bool vexpand, uiAlign valign) {
     uiGridAppend(w_, child.ctrl(), left, top, xspan, yspan, hexpand ? 1 : 0, halign,
                  vexpand ? 1 : 0, valign);
@@ -1592,34 +1537,17 @@ struct Grid : Widget<Grid, uiGrid> {
   }
 
   template <typename W>
-  Grid append(W &&child, int left, int top, int xspan, int yspan, bool hexpand, uiAlign halign,
-              bool vexpand, uiAlign valign) {
-    uiGridAppend(w_, std::forward<W>(child).ctrl(), left, top, xspan, yspan, hexpand ? 1 : 0,
-                 halign, vexpand ? 1 : 0, valign);
-    return *this;
-  }
-
-  template <typename W>
-  Grid insert_at(W &child, uiControl *existing, uiAt at, int xspan, int yspan, bool hexpand,
+  Grid insert_at(const W &child, uiControl *existing, uiAt at, int xspan, int yspan, bool hexpand,
                  uiAlign halign, bool vexpand, uiAlign valign) {
     uiGridInsertAt(w_, child.ctrl(), existing, at, xspan, yspan, hexpand ? 1 : 0, halign,
                    vexpand ? 1 : 0, valign);
     return *this;
   }
 
-  template <typename W>
-  Grid insert_at(W &&child, uiControl *existing, uiAt at, int xspan, int yspan, bool hexpand,
-                 uiAlign halign, bool vexpand, uiAlign valign) {
-    uiGridInsertAt(w_, std::forward<W>(child).ctrl(), existing, at, xspan, yspan, hexpand ? 1 : 0,
-                   halign, vexpand ? 1 : 0, valign);
-    return *this;
-  }
-
   template <typename Child, typename Existing>
-  Grid insert_at(Child &&child, Existing &existing, uiAt at, int xspan, int yspan, bool hexpand,
+  Grid insert_at(const Child &child, Existing &existing, uiAt at, int xspan, int yspan, bool hexpand,
                  uiAlign halign, bool vexpand, uiAlign valign) {
-    return insert_at(std::forward<Child>(child), existing.ctrl(), at, xspan, yspan, hexpand, halign,
-                     vexpand, valign);
+    return insert_at(child, existing.ctrl(), at, xspan, yspan, hexpand, halign, vexpand, valign);
   }
 };
 
