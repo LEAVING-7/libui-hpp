@@ -127,14 +127,13 @@ struct PopupWindow {
     if (sender.focused()) {
       return;
     }
-    ui::Application::queue_main(
-        [](void *queued_data) {
-          auto *self = static_cast<PopupWindow *>(queued_data);
-          if (self->window_.raw() != nullptr) {
-            self->close();
-          }
-        },
-        this);
+    ui::Application::queue_main<PopupWindow, &PopupWindow::close_on_main>(this);
+  }
+
+  void close_on_main() {
+    if (window_.raw() != nullptr) {
+      close();
+    }
   }
 };
 
@@ -381,6 +380,38 @@ class PopupPage {
   PopupWindow popup_{};
 };
 
+struct FileMenuHandler {
+  void on_open(ui::MenuItem item, ui::Window parent) {
+    (void)item;
+    ui::Text filename = ui::open_file(parent);
+    if (filename.empty()) {
+      ui::msg_box_error(parent, "No file selected", "Don't be alarmed!");
+      return;
+    }
+    ui::msg_box(parent, "File selected", filename.c_str());
+  }
+
+  void on_open_folder(ui::MenuItem item, ui::Window parent) {
+    (void)item;
+    ui::Text filename = ui::open_folder(parent);
+    if (filename.empty()) {
+      ui::msg_box_error(parent, "No folder selected", "Don't be alarmed!");
+      return;
+    }
+    ui::msg_box(parent, "Folder selected", filename.c_str());
+  }
+
+  void on_save(ui::MenuItem item, ui::Window parent) {
+    (void)item;
+    ui::Text filename = ui::save_file(parent);
+    if (filename.empty()) {
+      ui::msg_box_error(parent, "No file selected", "Don't be alarmed!");
+      return;
+    }
+    ui::msg_box(parent, "File selected (don't worry, it's still there)", filename.c_str());
+  }
+};
+
 class GalleryApp {
  public:
   GalleryApp()
@@ -403,41 +434,15 @@ class GalleryApp {
   }
 
   static void setup_menus() {
+    static FileMenuHandler file_menu_handler;
+
     ui::Menu file_menu = ui::Menu::make("File");
-    file_menu.append_item("Open").on_clicked(
-        [](uiMenuItem *, uiWindow *window, void *) {
-          ui::Window parent = ui::Window::wrap(window);
-          ui::Text filename = ui::open_file(parent);
-          if (filename.empty()) {
-            ui::msg_box_error(parent, "No file selected", "Don't be alarmed!");
-            return;
-          }
-          ui::msg_box(parent, "File selected", filename.c_str());
-        },
-        nullptr);
+    file_menu.append_item("Open")
+        .on_clicked<FileMenuHandler, &FileMenuHandler::on_open>(&file_menu_handler);
     file_menu.append_item("Open Folder")
-        .on_clicked(
-            [](uiMenuItem *, uiWindow *window, void *) {
-              ui::Window parent = ui::Window::wrap(window);
-              ui::Text filename = ui::open_folder(parent);
-              if (filename.empty()) {
-                ui::msg_box_error(parent, "No folder selected", "Don't be alarmed!");
-                return;
-              }
-              ui::msg_box(parent, "Folder selected", filename.c_str());
-            },
-            nullptr);
-    file_menu.append_item("Save").on_clicked(
-        [](uiMenuItem *, uiWindow *window, void *) {
-          ui::Window parent = ui::Window::wrap(window);
-          ui::Text filename = ui::save_file(parent);
-          if (filename.empty()) {
-            ui::msg_box_error(parent, "No file selected", "Don't be alarmed!");
-            return;
-          }
-          ui::msg_box(parent, "File selected (don't worry, it's still there)", filename.c_str());
-        },
-        nullptr);
+        .on_clicked<FileMenuHandler, &FileMenuHandler::on_open_folder>(&file_menu_handler);
+    file_menu.append_item("Save")
+        .on_clicked<FileMenuHandler, &FileMenuHandler::on_save>(&file_menu_handler);
     file_menu.append_quit_item();
 
     ui::Menu edit_menu = ui::Menu::make("Edit");
@@ -453,14 +458,7 @@ class GalleryApp {
 
  private:
   void bind_events() {
-    ui::Application::on_should_quit(
-        [](void *data) {
-          auto *self = static_cast<GalleryApp *>(data);
-          self->popup_page_.close_popup_if_open();
-          self->main_window_.destroy();
-          return 1;
-        },
-        this);
+    ui::Application::on_should_quit<GalleryApp, &GalleryApp::handle_should_quit>(this);
     main_window_.on_closing<GalleryApp, &GalleryApp::on_window_closing>(this)
         .on_position_changed<GalleryApp, &GalleryApp::on_window_position_changed>(this);
   }
@@ -477,6 +475,12 @@ class GalleryApp {
         .set_margined(2, true)
         .append("Popup Window", popup_page_.root())
         .set_margined(3, true);
+  }
+
+  int handle_should_quit() {
+    popup_page_.close_popup_if_open();
+    main_window_.destroy();
+    return 1;
   }
 
   int on_window_closing(ui::Window window) {

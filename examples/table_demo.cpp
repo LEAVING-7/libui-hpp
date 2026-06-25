@@ -142,7 +142,7 @@ struct Page16Handler : ui::TableModelHandler {
 struct Context {
   Page16Handler handler;
   ui::TableModel table_model;
-  uiTable *table = nullptr;
+  ui::Table table_;
   ui::Label lbl_row_clicked;
   ui::Label lbl_row_double_clicked;
   ui::Label lbl_num_selected_rows;
@@ -151,149 +151,120 @@ struct Context {
   ui::Spinbox column_id;
   ui::Spinbox column_width;
   int count_selection_changed = 0;
+  int header_sort_prev_ = 0;
 
   Context() : table_model(ui::TableModel::make(handler)) {}
 
   ~Context() { table_model.free(); }
 
   ui::VerticalBox make_page();
-};
 
-static int on_closing(uiWindow *, void *) {
-  uiQuit();
-  return 1;
-}
-
-static void header_visible_toggled(uiCheckbox *sender, void *data) {
-  auto *ctx = static_cast<Context *>(data);
-  ui::Checkbox checkbox;
-  checkbox = ui::Checkbox::wrap(sender);
-  ui::Table table;
-  table = ui::Table::wrap(ctx->table);
-  table.header_visible(checkbox.checked());
-  checkbox.set_checked(table.header_visible());
-}
-
-static void selection_mode_on_selected(uiCombobox *sender, void *data) {
-  auto *ctx = static_cast<Context *>(data);
-  ui::Combobox combobox;
-  combobox = ui::Combobox::wrap(sender);
-  ui::Table table;
-  table = ui::Table::wrap(ctx->table);
-  int index = combobox.selected();
-  if (index < 0) {
-    return;
-  }
-  table.set_selection_mode(static_cast<uiTableSelectionMode>(index));
-  combobox.set_selected(static_cast<int>(table.selection_mode()));
-}
-
-static void changed_column_id(uiSpinbox *sender, void *data) {
-  auto *ctx = static_cast<Context *>(data);
-  ui::Spinbox spinbox;
-  spinbox = ui::Spinbox::wrap(sender);
-  ui::Table table;
-  table = ui::Table::wrap(ctx->table);
-  ctx->column_width.set_value(table.column_width(spinbox.value()));
-}
-
-static void changed_column_width(uiSpinbox *sender, void *data) {
-  auto *ctx = static_cast<Context *>(data);
-  ui::Spinbox spinbox;
-  spinbox = ui::Spinbox::wrap(sender);
-  ui::Table table;
-  table = ui::Table::wrap(ctx->table);
-  table.set_column_width(ctx->column_id.value(), spinbox.value());
-}
-
-static void on_row_clicked(uiTable *table, int row, void *data) {
-  auto *ctx = static_cast<Context *>(data);
-  char str[128];
-  std::printf("Clicked row %d\n", row);
-  std::snprintf(str, sizeof(str), "Clicked row %d", row);
-  ctx->lbl_row_clicked.set_text(str);
-  (void)table;
-}
-
-static void on_row_double_clicked(uiTable *table, int row, void *data) {
-  auto *ctx = static_cast<Context *>(data);
-  char str[128];
-  std::printf("Double clicked row %d\n", row);
-  std::snprintf(str, sizeof(str), "Double clicked row %d", row);
-  ctx->lbl_row_double_clicked.set_text(str);
-  (void)table;
-}
-
-static void header_on_clicked(uiTable *sender, int col, void *) {
-  static int prev = 0;
-  ui::Table table;
-  table = ui::Table::wrap(sender);
-
-  if (prev != col) {
-    table.header_sort_indicator(prev, uiSortIndicatorNone);
+  int on_window_closing(ui::Window window) {
+    (void)window;
+    ui::Application::quit();
+    return 1;
   }
 
-  if (table.header_sort_indicator(col) == uiSortIndicatorAscending) {
-    table.header_sort_indicator(col, uiSortIndicatorDescending);
-  } else {
-    table.header_sort_indicator(col, uiSortIndicatorAscending);
+ private:
+  void on_header_visible_toggled(ui::Checkbox checkbox) {
+    table_.header_visible(checkbox.checked());
+    checkbox.set_checked(table_.header_visible());
   }
-  prev = col;
-}
 
-static void on_selection_changed(uiTable *sender, void *data) {
-  auto *ctx = static_cast<Context *>(data);
-  ui::Table table;
-  table = ui::Table::wrap(sender);
-  ui::TableSelection selection = table.selection();
-
-  char str[128];
-  std::snprintf(str, sizeof(str), "# Selection Changed Count: %d", ++ctx->count_selection_changed);
-  ctx->lbl_count_selection_changed.set_text(str);
-
-  std::snprintf(str, sizeof(str), "# Selected Rows: %d", selection.num_rows());
-  ctx->lbl_num_selected_rows.set_text(str);
-
-  int sum = 0;
-  for (int row : selection.rows()) {
-    sum += row;
-  }
-  std::snprintf(str, sizeof(str), "Sum Selected Rows: %d", sum);
-  ctx->lbl_sum_selected_rows.set_text(str);
-}
-
-static void select_checked(uiButton *, void *data) {
-  auto *ctx = static_cast<Context *>(data);
-  ui::Table table;
-  table = ui::Table::wrap(ctx->table);
-  std::vector<int> rows;
-  for (int i = 0; i < 15; ++i) {
-    if (ctx->handler.check_states()[i]) {
-      rows.push_back(i);
+  void on_selection_mode_selected(ui::Combobox combobox) {
+    int index = combobox.selected();
+    if (index < 0) {
+      return;
     }
+    table_.set_selection_mode(static_cast<uiTableSelectionMode>(index));
+    combobox.set_selected(static_cast<int>(table_.selection_mode()));
   }
-  table.set_selection(rows);
-}
+
+  void on_column_id_changed(ui::Spinbox spinbox) {
+    column_width.set_value(table_.column_width(spinbox.value()));
+  }
+
+  void on_column_width_changed(ui::Spinbox spinbox) {
+    table_.set_column_width(column_id.value(), spinbox.value());
+  }
+
+  void on_row_clicked(ui::Table table, int row) {
+    (void)table;
+    char str[128];
+    std::printf("Clicked row %d\n", row);
+    std::snprintf(str, sizeof(str), "Clicked row %d", row);
+    lbl_row_clicked.set_text(str);
+  }
+
+  void on_row_double_clicked(ui::Table table, int row) {
+    (void)table;
+    char str[128];
+    std::printf("Double clicked row %d\n", row);
+    std::snprintf(str, sizeof(str), "Double clicked row %d", row);
+    lbl_row_double_clicked.set_text(str);
+  }
+
+  void header_on_clicked(ui::Table table, int col) {
+    if (header_sort_prev_ != col) {
+      table.header_sort_indicator(header_sort_prev_, uiSortIndicatorNone);
+    }
+
+    if (table.header_sort_indicator(col) == uiSortIndicatorAscending) {
+      table.header_sort_indicator(col, uiSortIndicatorDescending);
+    } else {
+      table.header_sort_indicator(col, uiSortIndicatorAscending);
+    }
+    header_sort_prev_ = col;
+  }
+
+  void on_selection_changed(ui::Table table) {
+    ui::TableSelection selection = table.selection();
+
+    char str[128];
+    std::snprintf(str, sizeof(str), "# Selection Changed Count: %d", ++count_selection_changed);
+    lbl_count_selection_changed.set_text(str);
+
+    std::snprintf(str, sizeof(str), "# Selected Rows: %d", selection.num_rows());
+    lbl_num_selected_rows.set_text(str);
+
+    int sum = 0;
+    for (int row : selection.rows()) {
+      sum += row;
+    }
+    std::snprintf(str, sizeof(str), "Sum Selected Rows: %d", sum);
+    lbl_sum_selected_rows.set_text(str);
+  }
+
+  void on_select_checked(ui::Button sender) {
+    (void)sender;
+    std::vector<int> rows;
+    for (int i = 0; i < 15; ++i) {
+      if (handler.check_states()[i]) {
+        rows.push_back(i);
+      }
+    }
+    table_.set_selection(rows);
+  }
+};
 
 ui::VerticalBox Context::make_page() {
   ui::Table::Params params;
   params.model = &table_model;
   params.row_background_color_model_column = 3;
-  ui::Table table = ui::Table::make(params);
-  this->table = table.raw();
+  table_ = ui::Table::make(params);
 
   uiTableTextColumnOptionalParams text_params{4};
 
-  table.append_text_column("Column 1", 0, ui::kTableModelColumnNeverEditable)
+  table_.append_text_column("Column 1", 0, ui::kTableModelColumnNeverEditable)
       .append_image_text_column("Column 2", 5, 1, ui::kTableModelColumnNeverEditable, text_params)
       .append_text_column("Editable", 2, ui::kTableModelColumnAlwaysEditable)
       .append_checkbox_column("Checkboxes", 7, ui::kTableModelColumnAlwaysEditable)
       .append_button_column("Buttons", 6, ui::kTableModelColumnAlwaysEditable)
       .append_progress_bar_column("Progress Bar", 8)
-      .header_on_clicked(header_on_clicked, nullptr)
-      .on_selection_changed(on_selection_changed, this)
-      .on_row_clicked(on_row_clicked, this)
-      .on_row_double_clicked(on_row_double_clicked, this);
+      .header_on_clicked<Context, &Context::header_on_clicked>(this)
+      .on_selection_changed<Context, &Context::on_selection_changed>(this)
+      .on_row_clicked<Context, &Context::on_row_clicked>(this)
+      .on_row_double_clicked<Context, &Context::on_row_double_clicked>(this);
 
   lbl_row_clicked = ui::Label::make("Clicked row -");
   lbl_row_double_clicked = ui::Label::make("Double clicked row -");
@@ -308,24 +279,25 @@ ui::VerticalBox Context::make_page() {
       .append(ui::HorizontalBox::make()
                   .padded(true)
                   .append(ui::Checkbox::make("Header Visible")
-                              .set_checked(table.header_visible())
-                              .on_toggled(header_visible_toggled, this))
+                              .set_checked(table_.header_visible())
+                              .on_toggled<Context, &Context::on_header_visible_toggled>(this))
                   .append(ui::Separator::make_vertical())
                   .append(ui::Combobox::make()
                               .append("None")
                               .append("ZeroOrOne")
                               .append("One")
                               .append("ZeroOrMany")
-                              .set_selected(static_cast<int>(table.selection_mode()))
-                              .on_selected(selection_mode_on_selected, this))
+                              .set_selected(static_cast<int>(table_.selection_mode()))
+                              .on_selected<Context, &Context::on_selection_mode_selected>(this))
                   .append(ui::Separator::make_vertical())
                   .append(ui::Label::make("Column"))
-                  .append(column_id.on_changed(changed_column_id, this))
+                  .append(column_id.on_changed<Context, &Context::on_column_id_changed>(this))
                   .append(ui::Label::make("Width"))
-                  .append(column_width.on_changed(changed_column_width, this))
+                  .append(column_width.on_changed<Context, &Context::on_column_width_changed>(this))
                   .append(ui::Separator::make_vertical())
-                  .append(ui::Button::make("Select Checked").on_clicked(select_checked, this)))
-      .append(table, true)
+                  .append(ui::Button::make("Select Checked")
+                              .on_clicked<Context, &Context::on_select_checked>(this)))
+      .append(table_, true)
       .append(ui::HorizontalBox::make()
                   .padded(true)
                   .append(lbl_row_clicked)
@@ -347,7 +319,7 @@ int main() {
   {
     Context ctx;
     ui::Window window = ui::Window::make("libui Table Demo", 800, 600, false);
-    window.on_closing(on_closing, nullptr);
+    window.on_closing<Context, &Context::on_window_closing>(&ctx);
     window.set_child(ctx.make_page()).margined(true).show();
     ui::Application::run();
   }

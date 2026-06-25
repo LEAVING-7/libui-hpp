@@ -32,6 +32,16 @@ void widget_member_thunk_with_int(typename W::RawType *raw_sender, int arg, void
   (static_cast<T *>(data)->*Method)(W::wrap(raw_sender), arg);
 }
 
+template <typename T, void (T::*Method)()>
+void void_member_thunk(void *data) {
+  (static_cast<T *>(data)->*Method)();
+}
+
+template <typename T, int (T::*Method)()>
+int int_member_thunk(void *data) {
+  return (static_cast<T *>(data)->*Method)();
+}
+
 }  // namespace detail
 
 class Text {
@@ -210,8 +220,18 @@ struct Application {
 
   static void queue_main(void (*fn)(void *data), void *data) { uiQueueMain(fn, data); }
 
+  template <typename T, void (T::*Method)()>
+  static void queue_main(T *self) {
+    uiQueueMain(detail::void_member_thunk<T, Method>, self);
+  }
+
   static void timer(int milliseconds, int (*fn)(void *data), void *data) {
     uiTimer(milliseconds, fn, data);
+  }
+
+  template <typename T, int (T::*Method)()>
+  static void timer(int milliseconds, T *self) {
+    uiTimer(milliseconds, detail::int_member_thunk<T, Method>, self);
   }
 
   static int main_step(int wait) { return uiMainStep(wait); }
@@ -219,6 +239,11 @@ struct Application {
   static void main_steps() { uiMainSteps(); }
 
   static void on_should_quit(int (*fn)(void *data), void *data) { uiOnShouldQuit(fn, data); }
+
+  template <typename T, int (T::*Method)()>
+  static void on_should_quit(T *self) {
+    uiOnShouldQuit(detail::int_member_thunk<T, Method>, self);
+  }
 };
 
 struct Window : Widget<Window, uiWindow> {
